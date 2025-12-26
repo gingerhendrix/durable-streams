@@ -1,0 +1,21 @@
+{
+  "name": "@durable-streams/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alchemy": "./alchemy.resource.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@durable-streams/types": "workspace:*"
+  },
+  "devDependencies": {
+    "alchemy": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "catalog:"
+  }
+}

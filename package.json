@@ -1,0 +1,29 @@
+{
+  "name": "durable-streams",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "workspaces": {
+    "packages": ["packages/*"],
+    "catalog": {
+      "alchemy": "0.64.0",
+      "@cloudflare/workers-types": "^4.20250805.0",
+      "typescript": "^5.8.3"
+    }
+  },
+  "scripts": {
+    "deploy": "bun alchemy deploy",
+    "dev": "bun alchemy dev",
+    "destroy": "bun alchemy destroy",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "dependencies": {
+    "alchemy": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "typescript": "catalog:"
+  }
+}

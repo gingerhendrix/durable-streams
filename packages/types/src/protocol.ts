@@ -1,0 +1,92 @@
+/**
+ * Protocol Layer Types
+ * 
+ * Types for the business logic layer that handles validation,
+ * JSON mode processing, cursor generation, and orchestration.
+ */
+
+import type { StoredMessage } from "./storage.ts";
+
+// === Protocol Inputs ===
+
+export interface CreateOptions {
+  contentType?: string;
+  ttlSeconds?: number;
+  expiresAt?: string;
+  initialData?: Uint8Array;
+}
+
+export interface AppendOptions {
+  data: Uint8Array;
+  contentType: string;
+  seq?: string;
+}
+
+export interface ReadOptions {
+  offset?: string;
+}
+
+export interface ReadLiveOptions {
+  offset: string;
+  mode: "long-poll" | "sse";
+  cursor?: string;
+  signal?: AbortSignal;
+}
+
+// === Protocol Outputs ===
+
+export interface CreateResult {
+  status: "created" | "exists" | "conflict";
+  nextOffset: string;
+  contentType: string;
+}
+
+export interface AppendResult {
+  status: "ok" | "conflict" | "not-found";
+  nextOffset?: string;
+  conflictReason?: "content-type" | "sequence";
+}
+
+export interface ReadResult {
+  status: "ok" | "not-found" | "gone";
+  messages: StoredMessage[];
+  nextOffset: string;
+  upToDate: boolean;
+}
+
+export interface ReadLiveResult {
+  status: "ok" | "timeout" | "not-found";
+  messages: StoredMessage[];
+  nextOffset: string;
+  upToDate: boolean;
+  cursor: string;
+}
+
+export interface MetadataResult {
+  status: "ok" | "not-found";
+  contentType?: string;
+  nextOffset?: string;
+  ttlSeconds?: number;
+  expiresAt?: string;
+}
+
+export interface DeleteResult {
+  status: "ok" | "not-found";
+}
+
+// === Protocol Interface ===
+
+/**
+ * Protocol Layer Interface
+ * 
+ * Handles validation, JSON mode processing, cursor generation,
+ * and orchestration between HTTP and storage layers.
+ */
+export interface StreamProtocol {
+  create(options: CreateOptions): Promise<CreateResult>;
+  append(options: AppendOptions): Promise<AppendResult>;
+  read(options: ReadOptions): Promise<ReadResult>;
+  readLive(options: ReadLiveOptions): Promise<ReadLiveResult>;
+  metadata(): Promise<MetadataResult>;
+  delete(): Promise<DeleteResult>;
+}
