@@ -243,10 +243,130 @@ export class StreamDO extends DurableObject {
     });
   }
 
-  private async handleSSE(_offset: string, _cursor?: string): Promise<Response> {
-    // SSE implementation would go here
-    // This is a placeholder for the full SSE implementation
-    return new Response("SSE mode not yet implemented", { status: 501 });
+  private async handleSSE(offset: string, cursor?: string): Promise<Response> {
+    // Get metadata to validate content type
+    const metadata = await this.storage.getMetadata();
+
+    if (!metadata) {
+      return new Response("Stream not found", { status: 404 });
+    }
+
+    // SSE only valid for text/* or application/json
+    const contentTypeLower = metadata.contentType.toLowerCase();
+    const isText = contentTypeLower.startsWith("text/");
+    const isJson = contentTypeLower.startsWith("application/json");
+
+    if (!isText && !isJson) {
+      return new Response(
+        "SSE mode requires text/* or application/json content type",
+        { status: 400 }
+      );
+    }
+
+    // Create a readable stream for SSE
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let currentOffset = offset;
+    let currentCursor = cursor;
+    const connectionStartTime = Date.now();
+    const CONNECTION_TIMEOUT_MS = 60_000; // Close after ~60s for CDN collapsing
+
+    const stream = new ReadableStream({
+      start: async (controller) => {
+        try {
+          while (true) {
+            // Check if we should close connection for CDN collapsing
+            if (Date.now() - connectionStartTime >= CONNECTION_TIMEOUT_MS) {
+              controller.close();
+              return;
+            }
+
+            // Read messages using protocol layer
+            const result = await this.protocol.readLive({
+              offset: currentOffset,
+              mode: "sse",
+              cursor: currentCursor,
+            });
+
+            if (result.status === "not-found") {
+              controller.close();
+              return;
+            }
+
+            // Send data events if we have messages
+            if (result.messages.length > 0) {
+              if (isJson) {
+                // For JSON, batch messages as array
+                const items = result.messages.map((msg) =>
+                  decoder.decode(msg.data)
+                );
+                controller.enqueue(encoder.encode("event: data\n"));
+                controller.enqueue(encoder.encode("data: [\n"));
+                for (let i = 0; i < items.length; i++) {
+                  const suffix = i < items.length - 1 ? "," : "";
+                  controller.enqueue(
+                    encoder.encode(`data: ${items[i]}${suffix}\n`)
+                  );
+                }
+                controller.enqueue(encoder.encode("data: ]\n"));
+                controller.enqueue(encoder.encode("\n"));
+              } else {
+                // For text, send each line
+                const text = result.messages
+                  .map((msg) => decoder.decode(msg.data))
+                  .join("");
+                const lines = text.split("\n");
+                controller.enqueue(encoder.encode("event: data\n"));
+                for (const line of lines) {
+                  controller.enqueue(encoder.encode(`data: ${line}\n`));
+                }
+                controller.enqueue(encoder.encode("\n"));
+              }
+            }
+
+            // Send control event
+            const controlData: {
+              streamNextOffset: string;
+              streamCursor: string;
+              upToDate?: boolean;
+            } = {
+              streamNextOffset: result.nextOffset,
+              streamCursor: result.cursor,
+            };
+            if (result.upToDate) {
+              controlData.upToDate = true;
+            }
+            controller.enqueue(encoder.encode("event: control\n"));
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(controlData)}\n`)
+            );
+            controller.enqueue(encoder.encode("\n"));
+
+            // Update state for next iteration
+            currentOffset = result.nextOffset;
+            currentCursor = result.cursor;
+
+            // If timed out waiting for messages, continue loop for keep-alive
+            // The readLive handles waiting, so we just loop
+            if (result.status === "timeout") {
+              // Keep-alive sent via control event above
+              continue;
+            }
+          }
+        } catch (error) {
+          console.error("SSE stream error:", error);
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      },
+    });
   }
 
   private async handleMetadata(): Promise<Response> {
