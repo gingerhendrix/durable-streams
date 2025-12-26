@@ -6,9 +6,10 @@
  */
 
 import { Worker, DurableObjectNamespace } from "alchemy/cloudflare";
-import * as path from "node:path";
 
-const cwd = path.join(import.meta.dirname);
+// Alchemy will resolve cwd relative to this file
+// Using a simple relative path that works at build time
+const cwd = ".";
 
 export type DurableStreamsServerOptions = {
   version?: string;
@@ -40,4 +41,11 @@ export function DurableStreamsServerResource(
 export type DurableStreamsServer = Awaited<
   ReturnType<typeof DurableStreamsServerResource>
 >;
-export type DurableStreamsServerEnv = DurableStreamsServer["worker"]["Env"];
+
+// Environment type for the worker  
+export interface DurableStreamsServerEnv {
+  STREAM_DO: {
+    idFromName(name: string): DurableObjectId;
+    get(id: DurableObjectId): DurableObjectStub;
+  };
+}

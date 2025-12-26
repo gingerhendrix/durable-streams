@@ -19,7 +19,7 @@ export class StreamDO extends DurableObject {
   private storage: DOStreamStorage;
   private protocol: StreamProtocolImpl;
 
-  constructor(ctx: DurableObjectState, env: Env) {
+  constructor(ctx: DurableObjectState, env: DurableStreamsServerEnv) {
     super(ctx, env);
     this.storage = new DOStreamStorage(ctx);
     this.protocol = new StreamProtocolImpl(this.storage);
@@ -28,7 +28,7 @@ export class StreamDO extends DurableObject {
   /**
    * Handle HTTP requests to the stream
    */
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const method = request.method;
 
@@ -57,7 +57,7 @@ export class StreamDO extends DurableObject {
   /**
    * TTL alarm handler - deletes expired streams
    */
-  async alarm(): Promise<void> {
+  override async alarm(): Promise<void> {
     await this.storage.deleteAll();
   }
 
@@ -144,7 +144,7 @@ export class StreamDO extends DurableObject {
     });
   }
 
-  private async handleRead(request: Request, url: URL): Promise<Response> {
+  private async handleRead(_request: Request, url: URL): Promise<Response> {
     const offset = url.searchParams.get("offset") ?? undefined;
     const live = url.searchParams.get("live");
     const cursor = url.searchParams.get("cursor") ?? undefined;
@@ -243,7 +243,7 @@ export class StreamDO extends DurableObject {
     });
   }
 
-  private async handleSSE(offset: string, cursor?: string): Promise<Response> {
+  private async handleSSE(_offset: string, _cursor?: string): Promise<Response> {
     // SSE implementation would go here
     // This is a placeholder for the full SSE implementation
     return new Response("SSE mode not yet implemented", { status: 501 });
