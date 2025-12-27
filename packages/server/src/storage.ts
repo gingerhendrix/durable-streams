@@ -1,12 +1,14 @@
 /**
  * Storage Layer Implementation
- * 
- * SQLite-backed Durable Object storage using the synchronous KV API.
- * Handles persistence, offset generation, and wait/notify for live reads.
+ *
+ * SQLite-backed Durable Object storage.
+ * Extends DurableObject for RPC access from the protocol layer.
+ * Uses the async storage API for compatibility.
  */
 
+import { DurableObject } from "cloudflare:workers";
 import type {
-  StreamStorage,
+  StreamStorage as StreamStorageInterface,
   StreamMetadata,
   CreateStreamOptions,
   ReadResult,
@@ -14,14 +16,42 @@ import type {
   StoredMessage,
 } from "cf-durable-streams-types/storage";
 
-export class DOStreamStorage implements StreamStorage {
-  private kv: DurableObjectStorage;
-  private ctx: DurableObjectState;
-  private waiters: Set<() => void> = new Set();
+interface StreamStorageEnv {
+  // Env bindings if needed
+}
 
-  constructor(ctx: DurableObjectState) {
-    this.ctx = ctx;
-    this.kv = ctx.storage;
+export class StreamStorage
+  extends DurableObject<StreamStorageEnv>
+  implements StreamStorageInterface
+{
+  private waiters: Set<() => void> = new Set();
+  private metadata: StreamMetadata | null = null;
+  private metadataLoaded = false;
+
+  constructor(ctx: DurableObjectState, env: StreamStorageEnv) {
+    super(ctx, env);
+    // Load metadata synchronously in constructor for memoization
+    this.loadMetadata();
+  }
+
+  private loadMetadata(): void {
+    // Use synchronous KV API if available, otherwise defer to first access
+    try {
+      const kv = (this.ctx.storage as any).kv;
+      if (kv) {
+        this.metadata = kv.get("metadata") ?? null;
+        this.metadataLoaded = true;
+      }
+    } catch {
+      // Fall back to async load on first access
+    }
+  }
+
+  /**
+   * TTL alarm handler - deletes expired streams
+   */
+  override async alarm(): Promise<void> {
+    await this.deleteAll();
   }
 
   async createStream(options: CreateStreamOptions): Promise<string> {
@@ -32,10 +62,14 @@ export class DOStreamStorage implements StreamStorage {
       createdAt: Date.now(),
     };
 
-    await this.kv.put("metadata", metadata);
-    await this.kv.put("counter", 0);
+    await this.ctx.storage.put("metadata", metadata);
+    await this.ctx.storage.put("counter", 0);
     const initialOffset = this.formatOffset(0);
-    await this.kv.put("currentOffset", initialOffset);
+    await this.ctx.storage.put("currentOffset", initialOffset);
+
+    // Update memoized metadata
+    this.metadata = metadata;
+    this.metadataLoaded = true;
 
     // Set alarm for TTL if configured
     if (options.ttlSeconds) {
@@ -59,20 +93,35 @@ export class DOStreamStorage implements StreamStorage {
     }
     this.waiters.clear();
 
+    // Clear memoized metadata
+    this.metadata = null;
+
     // Delete all storage
     await this.ctx.storage.deleteAll();
   }
 
   async getMetadata(): Promise<StreamMetadata | null> {
-    return (await this.kv.get<StreamMetadata>("metadata")) ?? null;
+    // Return memoized metadata if already loaded
+    if (this.metadataLoaded) {
+      return this.metadata;
+    }
+
+    // Load from storage
+    this.metadata =
+      (await this.ctx.storage.get<StreamMetadata>("metadata")) ?? null;
+    this.metadataLoaded = true;
+    return this.metadata;
   }
 
   async getCurrentOffset(): Promise<string> {
-    return (await this.kv.get<string>("currentOffset")) ?? this.formatOffset(0);
+    return (
+      (await this.ctx.storage.get<string>("currentOffset")) ??
+      this.formatOffset(0)
+    );
   }
 
   async append(messages: Uint8Array[], seq?: string): Promise<string> {
-    let counter = (await this.kv.get<number>("counter")) ?? 0;
+    let counter = (await this.ctx.storage.get<number>("counter")) ?? 0;
     let lastOffset = "";
 
     for (const data of messages) {
@@ -80,20 +129,22 @@ export class DOStreamStorage implements StreamStorage {
       const offset = this.formatOffset(counter);
       lastOffset = offset;
 
-      await this.kv.put(`message:${offset}`, {
+      await this.ctx.storage.put(`message:${offset}`, {
         data,
         offset,
         timestamp: Date.now(),
       } satisfies StoredMessage);
     }
 
-    await this.kv.put("counter", counter);
-    await this.kv.put("currentOffset", lastOffset);
+    await this.ctx.storage.put("counter", counter);
+    await this.ctx.storage.put("currentOffset", lastOffset);
 
     if (seq) {
-      const meta = await this.kv.get<StreamMetadata>("metadata");
+      const meta = await this.ctx.storage.get<StreamMetadata>("metadata");
       if (meta) {
-        await this.kv.put("metadata", { ...meta, lastSeq: seq });
+        const updatedMeta = { ...meta, lastSeq: seq };
+        await this.ctx.storage.put("metadata", updatedMeta);
+        this.metadata = updatedMeta;
       }
     }
 
@@ -114,7 +165,7 @@ export class DOStreamStorage implements StreamStorage {
       listOptions.startAfter = `message:${afterOffset}`;
     }
 
-    const entries = await this.kv.list<StoredMessage>(listOptions);
+    const entries = await this.ctx.storage.list<StoredMessage>(listOptions);
     const messages: StoredMessage[] = [];
 
     for (const [_, value] of entries) {
@@ -122,7 +173,9 @@ export class DOStreamStorage implements StreamStorage {
     }
 
     const nextOffset =
-      messages.length > 0 ? messages[messages.length - 1]!.offset : currentOffset;
+      messages.length > 0
+        ? messages[messages.length - 1]!.offset
+        : currentOffset;
 
     return {
       messages,

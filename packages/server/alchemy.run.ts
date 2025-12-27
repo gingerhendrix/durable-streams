@@ -10,7 +10,7 @@ import { Worker, DurableObjectNamespace } from "alchemy/cloudflare";
 const app = await alchemy("durable-streams");
 
 const streamDO = DurableObjectNamespace("stream-do", {
-  className: "StreamDO",
+  className: "StreamStorage",
   sqlite: true,
 });
 
