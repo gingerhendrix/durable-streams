@@ -1,5 +1,5 @@
 {
-  "name": "@durable-streams/server",
+  "name": "cf-durable-streams",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,14 +10,16 @@
     "typecheck": "tsc --noEmit",
     "dev": "bun alchemy dev",
     "deploy": "bun alchemy deploy",
-    "destroy": "bun alchemy destroy"
+    "destroy": "bun alchemy destroy",
+    "test": "bun run dev & sleep 3 && npx @durable-streams/conformance-tests --run http://localhost:8787; kill %1"
   },
   "dependencies": {
-    "@durable-streams/types": "workspace:*"
+    "cf-durable-streams-types": "workspace:*"
   },
   "devDependencies": {
     "alchemy": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@durable-streams/conformance-tests": "file:../../../../scratch/durable-streams/packages/conformance-tests",
     "typescript": "catalog:"
   }
 }

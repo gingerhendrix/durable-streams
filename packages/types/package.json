@@ -1,5 +1,5 @@
 {
-  "name": "@durable-streams/types",
+  "name": "cf-durable-streams-types",
   "version": "0.0.1",
   "private": true,
   "type": "module",

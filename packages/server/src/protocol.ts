@@ -17,8 +17,8 @@ import type {
   ReadLiveResult,
   MetadataResult,
   DeleteResult,
-} from "@durable-streams/types/protocol";
-import type { StreamStorage, StreamMetadata } from "@durable-streams/types/storage";
+} from "cf-durable-streams-types/protocol";
+import type { StreamStorage, StreamMetadata } from "cf-durable-streams-types/storage";
 
 const CURSOR_EPOCH = new Date("2024-10-09T00:00:00.000Z").getTime();
 const CURSOR_INTERVAL_MS = 20_000;

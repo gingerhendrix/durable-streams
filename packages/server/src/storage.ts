@@ -12,7 +12,7 @@ import type {
   ReadResult,
   ReadLiveResult,
   StoredMessage,
-} from "@durable-streams/types/storage";
+} from "cf-durable-streams-types/storage";
 
 export class DOStreamStorage implements StreamStorage {
   private kv: DurableObjectStorage;

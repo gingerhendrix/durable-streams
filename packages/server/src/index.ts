@@ -8,7 +8,10 @@
 import { DurableObject } from "cloudflare:workers";
 import { DOStreamStorage } from "./storage.ts";
 import { StreamProtocolImpl } from "./protocol.ts";
-import type { DurableStreamsServerEnv } from "../alchemy.resource.ts";
+// Environment type for the worker
+interface DurableStreamsServerEnv {
+  STREAM_DO: DurableObjectNamespace<StreamDO>;
+}
 
 /**
  * Stream Durable Object
