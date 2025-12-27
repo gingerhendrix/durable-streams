@@ -85,16 +85,60 @@ export class StreamDO extends DurableObject {
       );
     }
 
-    const ttlSeconds = ttlHeader ? parseInt(ttlHeader, 10) : undefined;
-    const initialData = await request.arrayBuffer();
+    // Validate Expires-At format (must be valid ISO 8601 timestamp)
+    if (expiresAtHeader) {
+      const parsed = new Date(expiresAtHeader);
+      if (isNaN(parsed.getTime())) {
+        return new Response("Invalid Stream-Expires-At format", { status: 400 });
+      }
+    }
 
-    const result = await this.protocol.create({
-      contentType,
-      ttlSeconds,
-      expiresAt: expiresAtHeader ?? undefined,
-      initialData:
-        initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined,
-    });
+    const ttlSeconds = ttlHeader ? parseInt(ttlHeader, 10) : undefined;
+
+    let initialData: ArrayBuffer;
+    try {
+      initialData = await request.arrayBuffer();
+    } catch (error) {
+      // Handle payload too large or other body read errors
+      console.error("Error reading request body:", error);
+      return new Response("Payload too large", { status: 413 });
+    }
+
+    let result;
+    try {
+      result = await this.protocol.create({
+        contentType,
+        ttlSeconds,
+        expiresAt: expiresAtHeader ?? undefined,
+        initialData:
+          initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined,
+      });
+    } catch (error) {
+      // Handle JSON parsing/validation errors
+      if (error instanceof Error && error.message.includes("Empty arrays not allowed")) {
+        // For PUT, empty array is valid - it creates an empty stream
+        result = await this.protocol.create({
+          contentType,
+          ttlSeconds,
+          expiresAt: expiresAtHeader ?? undefined,
+          initialData: undefined,
+        });
+      } else if (error instanceof SyntaxError) {
+        return new Response("Invalid JSON", { status: 400 });
+      } else if (error instanceof Error && (
+        error.message.includes("value too large") ||
+        error.message.includes("Value too large") ||
+        error.message.includes("exceeds") ||
+        error.message.includes("too big") ||
+        error.message.includes("limit")
+      )) {
+        // Handle storage size limit errors
+        console.error("Payload too large for storage:", error);
+        return new Response("Payload too large", { status: 413 });
+      } else {
+        throw error;
+      }
+    }
 
     if (result.status === "conflict") {
       return new Response("Stream exists with different configuration", {
@@ -114,24 +158,53 @@ export class StreamDO extends DurableObject {
   }
 
   private async handleAppend(request: Request): Promise<Response> {
-    const contentType =
-      request.headers.get("content-type") ?? "application/octet-stream";
+    const contentType = request.headers.get("content-type");
     if (!contentType) {
       return new Response("Content-Type required", { status: 400 });
     }
 
     const seq = request.headers.get("stream-seq") ?? undefined;
-    const data = await request.arrayBuffer();
+
+    let data: ArrayBuffer;
+    try {
+      data = await request.arrayBuffer();
+    } catch (error) {
+      // Handle payload too large or other body read errors
+      console.error("Error reading request body:", error);
+      return new Response("Payload too large", { status: 413 });
+    }
 
     if (data.byteLength === 0) {
       return new Response("Empty body not allowed", { status: 400 });
     }
 
-    const result = await this.protocol.append({
-      data: new Uint8Array(data),
-      contentType,
-      seq,
-    });
+    let result;
+    try {
+      result = await this.protocol.append({
+        data: new Uint8Array(data),
+        contentType,
+        seq,
+      });
+    } catch (error) {
+      // Handle JSON parsing/validation errors
+      if (error instanceof Error && error.message.includes("Empty arrays not allowed")) {
+        return new Response("Empty arrays not allowed", { status: 400 });
+      } else if (error instanceof SyntaxError) {
+        return new Response("Invalid JSON", { status: 400 });
+      } else if (error instanceof Error && (
+        error.message.includes("value too large") ||
+        error.message.includes("Value too large") ||
+        error.message.includes("exceeds") ||
+        error.message.includes("too big") ||
+        error.message.includes("limit")
+      )) {
+        // Handle storage size limit errors
+        console.error("Payload too large for storage:", error);
+        return new Response("Payload too large", { status: 413 });
+      } else {
+        throw error;
+      }
+    }
 
     if (result.status === "not-found") {
       return new Response("Stream not found", { status: 404 });
@@ -153,7 +226,7 @@ export class StreamDO extends DurableObject {
     });
   }
 
-  private async handleRead(_request: Request, url: URL): Promise<Response> {
+  private async handleRead(request: Request, url: URL): Promise<Response> {
     const offset = url.searchParams.get("offset") ?? undefined;
     const live = url.searchParams.get("live");
     const cursor = url.searchParams.get("cursor") ?? undefined;
@@ -183,26 +256,50 @@ export class StreamDO extends DurableObject {
       return new Response("Stream not found", { status: 404 });
     }
 
+    // Generate ETag for cache validation
+    const startOffset = offset ?? "-1";
+    const etag = `"${btoa(url.pathname)}:${startOffset}:${result.nextOffset}"`;
+
+    // Check If-None-Match header for conditional request
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          etag,
+          "cache-control": "public, max-age=60, stale-while-revalidate=300",
+        },
+      });
+    }
+
     // For JSON streams, format as array
     const metadata = await this.storage.getMetadata();
-    const isJson = metadata?.contentType
-      .toLowerCase()
-      .startsWith("application/json");
+    const contentTypeLower = metadata?.contentType.toLowerCase() ?? "";
+    const isJson = contentTypeLower.startsWith("application/json");
+    const isText = contentTypeLower.startsWith("text/");
 
-    let body: string;
-    if (isJson && result.messages.length > 0) {
+    let body: string | Uint8Array;
+    if (isJson) {
+      // JSON streams always return an array (even if empty)
       const items = result.messages.map((msg) =>
         new TextDecoder().decode(msg.data),
       );
       body = `[${items.join(",")}]`;
-    } else {
+    } else if (isText) {
       body = result.messages
         .map((msg) => new TextDecoder().decode(msg.data))
         .join("");
+    } else {
+      // Binary content - concatenate raw bytes without text decoding
+      const totalLength = result.messages.reduce((acc, msg) => acc + msg.data.length, 0);
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const msg of result.messages) {
+        combined.set(msg.data, offset);
+        offset += msg.data.length;
+      }
+      body = combined;
     }
-
-    const startOffset = offset ?? "-1";
-    const etag = `"${btoa(url.pathname)}:${startOffset}:${result.nextOffset}"`;
 
     return new Response(body, {
       headers: {
@@ -241,20 +338,30 @@ export class StreamDO extends DurableObject {
     }
 
     const metadata = await this.storage.getMetadata();
-    const isJson = metadata?.contentType
-      .toLowerCase()
-      .startsWith("application/json");
+    const contentTypeLower = metadata?.contentType.toLowerCase() ?? "";
+    const isJson = contentTypeLower.startsWith("application/json");
+    const isText = contentTypeLower.startsWith("text/");
 
-    let body: string;
+    let body: string | Uint8Array;
     if (isJson && result.messages.length > 0) {
       const items = result.messages.map((msg) =>
         new TextDecoder().decode(msg.data),
       );
       body = `[${items.join(",")}]`;
-    } else {
+    } else if (isText) {
       body = result.messages
         .map((msg) => new TextDecoder().decode(msg.data))
         .join("");
+    } else {
+      // Binary content - concatenate raw bytes without text decoding
+      const totalLength = result.messages.reduce((acc, msg) => acc + msg.data.length, 0);
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const msg of result.messages) {
+        combined.set(msg.data, offset);
+        offset += msg.data.length;
+      }
+      body = combined;
     }
 
     return new Response(body, {
@@ -295,9 +402,92 @@ export class StreamDO extends DurableObject {
     const connectionStartTime = Date.now();
     const CONNECTION_TIMEOUT_MS = 60_000; // Close after ~60s for CDN collapsing
 
+    // Helper to generate cursor
+    const generateCursor = (previous?: string): string => {
+      const CURSOR_EPOCH = new Date("2024-10-09T00:00:00.000Z").getTime();
+      const CURSOR_INTERVAL_MS = 20_000;
+      const now = Date.now();
+      const currentInterval = Math.floor((now - CURSOR_EPOCH) / CURSOR_INTERVAL_MS);
+
+      if (!previous) {
+        return String(currentInterval);
+      }
+
+      const previousInterval = parseInt(previous, 10);
+      if (previousInterval < currentInterval) {
+        return String(currentInterval);
+      }
+
+      const jitterIntervals = Math.max(1, Math.floor(Math.random() * 180));
+      return String(previousInterval + jitterIntervals);
+    };
+
     const stream = new ReadableStream({
       start: async (controller) => {
         try {
+          // First, do a non-blocking read to get current state and send initial control event
+          // This ensures clients immediately know the connection is established
+          const initialResult = await this.protocol.read({
+            offset: currentOffset === "-1" ? undefined : currentOffset,
+          });
+
+          if (initialResult.status === "not-found") {
+            controller.close();
+            return;
+          }
+
+          // Send data events if we have messages from initial read
+          if (initialResult.messages.length > 0) {
+            if (isJson) {
+              const items = initialResult.messages.map((msg) =>
+                decoder.decode(msg.data),
+              );
+              controller.enqueue(encoder.encode("event: data\n"));
+              controller.enqueue(encoder.encode("data: [\n"));
+              for (let i = 0; i < items.length; i++) {
+                const suffix = i < items.length - 1 ? "," : "";
+                controller.enqueue(
+                  encoder.encode(`data: ${items[i]}${suffix}\n`),
+                );
+              }
+              controller.enqueue(encoder.encode("data: ]\n"));
+              controller.enqueue(encoder.encode("\n"));
+            } else {
+              const text = initialResult.messages
+                .map((msg) => decoder.decode(msg.data))
+                .join("");
+              const lines = text.split("\n");
+              controller.enqueue(encoder.encode("event: data\n"));
+              for (const line of lines) {
+                controller.enqueue(encoder.encode(`data: ${line}\n`));
+              }
+              controller.enqueue(encoder.encode("\n"));
+            }
+          }
+
+          // Send initial control event immediately (even for empty streams)
+          currentCursor = generateCursor(currentCursor);
+          const initialControlData: {
+            streamNextOffset: string;
+            streamCursor: string;
+            upToDate?: boolean;
+          } = {
+            streamNextOffset: initialResult.nextOffset,
+            streamCursor: currentCursor,
+          };
+          if (initialResult.upToDate) {
+            initialControlData.upToDate = true;
+          }
+          controller.enqueue(encoder.encode("event: control\n"));
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(initialControlData)}\n`),
+          );
+          controller.enqueue(encoder.encode("\n"));
+
+          // Update offset for live polling
+          currentOffset = initialResult.nextOffset;
+
+          // Now enter the live polling loop
           while (true) {
             // Check if we should close connection for CDN collapsing
             if (Date.now() - connectionStartTime >= CONNECTION_TIMEOUT_MS) {
@@ -305,7 +495,7 @@ export class StreamDO extends DurableObject {
               return;
             }
 
-            // Read messages using protocol layer
+            // Read messages using protocol layer (blocking)
             const result = await this.protocol.readLive({
               offset: currentOffset,
               mode: "sse",

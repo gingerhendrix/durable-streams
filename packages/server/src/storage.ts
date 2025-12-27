@@ -111,7 +111,6 @@ export class DOStreamStorage implements StreamStorage {
     };
 
     if (afterOffset) {
-      listOptions.start = `message:${afterOffset}`;
       listOptions.startAfter = `message:${afterOffset}`;
     }
 
