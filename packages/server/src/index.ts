@@ -1,6 +1,6 @@
 /**
  * Durable Streams Server
- * 
+ *
  * Durable Object implementation of the Durable Streams protocol.
  * Provides HTTP API for append-only stream operations.
  */
@@ -15,7 +15,7 @@ interface DurableStreamsServerEnv {
 
 /**
  * Stream Durable Object
- * 
+ *
  * Each instance manages a single stream with its metadata and messages.
  */
 export class StreamDO extends DurableObject {
@@ -65,7 +65,8 @@ export class StreamDO extends DurableObject {
   }
 
   private async handleCreate(request: Request): Promise<Response> {
-    const contentType = request.headers.get("content-type") ?? "application/octet-stream";
+    const contentType =
+      request.headers.get("content-type") ?? "application/octet-stream";
     const ttlHeader = request.headers.get("stream-ttl");
     const expiresAtHeader = request.headers.get("stream-expires-at");
 
@@ -76,9 +77,12 @@ export class StreamDO extends DurableObject {
 
     // Cannot specify both TTL and expires-at
     if (ttlHeader && expiresAtHeader) {
-      return new Response("Cannot specify both Stream-TTL and Stream-Expires-At", {
-        status: 400,
-      });
+      return new Response(
+        "Cannot specify both Stream-TTL and Stream-Expires-At",
+        {
+          status: 400,
+        },
+      );
     }
 
     const ttlSeconds = ttlHeader ? parseInt(ttlHeader, 10) : undefined;
@@ -88,7 +92,8 @@ export class StreamDO extends DurableObject {
       contentType,
       ttlSeconds,
       expiresAt: expiresAtHeader ?? undefined,
-      initialData: initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined,
+      initialData:
+        initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined,
     });
 
     if (result.status === "conflict") {
@@ -109,7 +114,8 @@ export class StreamDO extends DurableObject {
   }
 
   private async handleAppend(request: Request): Promise<Response> {
-    const contentType = request.headers.get("content-type");
+    const contentType =
+      request.headers.get("content-type") ?? "application/octet-stream";
     if (!contentType) {
       return new Response("Content-Type required", { status: 400 });
     }
@@ -179,14 +185,20 @@ export class StreamDO extends DurableObject {
 
     // For JSON streams, format as array
     const metadata = await this.storage.getMetadata();
-    const isJson = metadata?.contentType.toLowerCase().startsWith("application/json");
+    const isJson = metadata?.contentType
+      .toLowerCase()
+      .startsWith("application/json");
 
     let body: string;
     if (isJson && result.messages.length > 0) {
-      const items = result.messages.map((msg) => new TextDecoder().decode(msg.data));
+      const items = result.messages.map((msg) =>
+        new TextDecoder().decode(msg.data),
+      );
       body = `[${items.join(",")}]`;
     } else {
-      body = result.messages.map((msg) => new TextDecoder().decode(msg.data)).join("");
+      body = result.messages
+        .map((msg) => new TextDecoder().decode(msg.data))
+        .join("");
     }
 
     const startOffset = offset ?? "-1";
@@ -203,7 +215,10 @@ export class StreamDO extends DurableObject {
     });
   }
 
-  private async handleLongPoll(offset: string, cursor?: string): Promise<Response> {
+  private async handleLongPoll(
+    offset: string,
+    cursor?: string,
+  ): Promise<Response> {
     const result = await this.protocol.readLive({
       offset,
       mode: "long-poll",
@@ -226,14 +241,20 @@ export class StreamDO extends DurableObject {
     }
 
     const metadata = await this.storage.getMetadata();
-    const isJson = metadata?.contentType.toLowerCase().startsWith("application/json");
+    const isJson = metadata?.contentType
+      .toLowerCase()
+      .startsWith("application/json");
 
     let body: string;
     if (isJson && result.messages.length > 0) {
-      const items = result.messages.map((msg) => new TextDecoder().decode(msg.data));
+      const items = result.messages.map((msg) =>
+        new TextDecoder().decode(msg.data),
+      );
       body = `[${items.join(",")}]`;
     } else {
-      body = result.messages.map((msg) => new TextDecoder().decode(msg.data)).join("");
+      body = result.messages
+        .map((msg) => new TextDecoder().decode(msg.data))
+        .join("");
     }
 
     return new Response(body, {
@@ -262,7 +283,7 @@ export class StreamDO extends DurableObject {
     if (!isText && !isJson) {
       return new Response(
         "SSE mode requires text/* or application/json content type",
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -301,14 +322,14 @@ export class StreamDO extends DurableObject {
               if (isJson) {
                 // For JSON, batch messages as array
                 const items = result.messages.map((msg) =>
-                  decoder.decode(msg.data)
+                  decoder.decode(msg.data),
                 );
                 controller.enqueue(encoder.encode("event: data\n"));
                 controller.enqueue(encoder.encode("data: [\n"));
                 for (let i = 0; i < items.length; i++) {
                   const suffix = i < items.length - 1 ? "," : "";
                   controller.enqueue(
-                    encoder.encode(`data: ${items[i]}${suffix}\n`)
+                    encoder.encode(`data: ${items[i]}${suffix}\n`),
                   );
                 }
                 controller.enqueue(encoder.encode("data: ]\n"));
@@ -341,7 +362,7 @@ export class StreamDO extends DurableObject {
             }
             controller.enqueue(encoder.encode("event: control\n"));
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(controlData)}\n`)
+              encoder.encode(`data: ${JSON.stringify(controlData)}\n`),
             );
             controller.enqueue(encoder.encode("\n"));
 
@@ -383,7 +404,9 @@ export class StreamDO extends DurableObject {
       headers: {
         "content-type": result.contentType!,
         "stream-next-offset": result.nextOffset!,
-        ...(result.ttlSeconds ? { "stream-ttl": String(result.ttlSeconds) } : {}),
+        ...(result.ttlSeconds
+          ? { "stream-ttl": String(result.ttlSeconds) }
+          : {}),
         ...(result.expiresAt ? { "stream-expires-at": result.expiresAt } : {}),
         "cache-control": "no-store",
       },
@@ -403,18 +426,23 @@ export class StreamDO extends DurableObject {
 
 /**
  * Worker entry point
- * 
+ *
  * Routes requests to the appropriate Durable Object instance.
  */
 export default {
-  async fetch(request: Request, env: DurableStreamsServerEnv): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: DurableStreamsServerEnv,
+  ): Promise<Response> {
     const url = new URL(request.url);
-    
+
     // Extract stream path - everything after /streams/
     const streamPath = url.pathname.replace(/^\/streams\//, "");
-    
+
     if (!streamPath || streamPath === url.pathname) {
-      return new Response("Stream path required: /streams/{path}", { status: 400 });
+      return new Response("Stream path required: /streams/{path}", {
+        status: 400,
+      });
     }
 
     // Get or create Durable Object instance for this stream
