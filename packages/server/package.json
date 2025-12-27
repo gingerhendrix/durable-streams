@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./alchemy": "./alchemy.resource.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "bun alchemy dev",
+    "deploy": "bun alchemy deploy",
+    "destroy": "bun alchemy destroy"
   },
   "dependencies": {
     "@durable-streams/types": "workspace:*"

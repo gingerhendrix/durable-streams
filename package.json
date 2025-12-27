@@ -18,12 +18,7 @@
     "typecheck": "bun run --filter '*' typecheck"
   },
   "dependencies": {
-    "alchemy": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
-    "@types/bun": "latest",
-    "@types/node": "latest",
-    "typescript": "catalog:"
   }
 }
