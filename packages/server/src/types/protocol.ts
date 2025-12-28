@@ -76,26 +76,7 @@ export interface DeleteResult {
 
 // === Storage Factory Type ===
 
-/**
- * A storage stub that has methods for accessing stream data.
- * This mirrors the StreamStorage class's public RPC methods.
- */
-export interface StorageStub {
-  getMetadata(): Promise<import("./storage.ts").StreamMetadata | null>;
-  getCurrentOffset(): Promise<string>;
-  createStream(
-    options: import("./storage.ts").CreateStreamOptions
-  ): Promise<string>;
-  append(messages: Uint8Array[], seq?: string): Promise<string>;
-  read(afterOffset?: string): Promise<import("./storage.ts").ReadResult>;
-  readLive(
-    afterOffset: string,
-    signal?: AbortSignal
-  ): Promise<import("./storage.ts").ReadLiveResult>;
-  deleteAll(): Promise<void>;
-}
-
-export type StorageFactory = (streamId: string) => StorageStub;
+export type StorageFactory = (streamId: string) => import("./storage.ts").StreamStorage;
 
 // === Protocol Interface ===
 

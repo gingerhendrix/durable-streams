@@ -11,8 +11,8 @@ import type {
   StreamStorage as StreamStorageInterface,
   StreamMetadata,
   CreateStreamOptions,
-  ReadResult,
-  ReadLiveResult,
+  StorageReadResult,
+  StorageReadLiveResult,
   StoredMessage,
 } from "./types/storage.ts";
 
@@ -128,7 +128,7 @@ export class StreamStorage
     return lastOffset;
   }
 
-  async read(afterOffset?: string): Promise<ReadResult> {
+  async read(afterOffset?: string): Promise<StorageReadResult> {
     const listOptions: DurableObjectListOptions = {
       prefix: "message:",
     };
@@ -159,7 +159,7 @@ export class StreamStorage
   async readLive(
     afterOffset: string,
     signal?: AbortSignal,
-  ): Promise<ReadLiveResult> {
+  ): Promise<StorageReadLiveResult> {
     // Check for existing messages
     const result = await this.read(afterOffset);
     if (result.messages.length > 0) {

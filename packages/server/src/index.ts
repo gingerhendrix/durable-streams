@@ -5,7 +5,7 @@
  * Wires together the HTTP handler, protocol, and storage layers.
  */
 
-import type { StorageStub } from "./types/protocol.ts";
+import type { StreamStorage as StreamStorageInterface } from "./types/storage.ts";
 import { HttpHandler } from "./http.ts";
 import { StreamProtocol } from "./protocol.ts";
 import { StreamStorage } from "./storage.ts";
@@ -30,10 +30,10 @@ interface Env {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Create storage factory from env binding
-    const storageFactory = (streamId: string): StorageStub => {
+    const storageFactory = (streamId: string): StreamStorageInterface => {
       const id = env.STREAM_DO.idFromName(streamId);
       // The Durable Object stub has all the methods of StreamStorage
-      return env.STREAM_DO.get(id) as unknown as StorageStub;
+      return env.STREAM_DO.get(id) as unknown as StreamStorageInterface;
     };
 
     // Create protocol with factory

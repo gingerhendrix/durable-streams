@@ -13,13 +13,13 @@ import type {
   AppendOptions,
   AppendResult,
   ReadOptions,
+  ReadResult,
   ReadLiveOptions,
+  ReadLiveResult,
   MetadataResult,
   DeleteResult,
 } from "./types/protocol.ts";
 import type { StreamMetadata } from "./types/storage.ts";
-import type { ReadResult as ProtocolReadResult } from "./types/protocol.ts";
-import type { ReadLiveResult as ProtocolReadLiveResult } from "./types/protocol.ts";
 
 const CURSOR_EPOCH = new Date("2024-10-09T00:00:00.000Z").getTime();
 const CURSOR_INTERVAL_MS = 20_000;
@@ -89,7 +89,7 @@ export class StreamProtocol implements StreamProtocolInterface {
   async read(
     streamId: string,
     options: ReadOptions
-  ): Promise<ProtocolReadResult> {
+  ): Promise<ReadResult> {
     const storage = this.getStorage(streamId);
     const metadata = await storage.getMetadata();
 
@@ -111,7 +111,7 @@ export class StreamProtocol implements StreamProtocolInterface {
   async readLive(
     streamId: string,
     options: ReadLiveOptions
-  ): Promise<ProtocolReadLiveResult> {
+  ): Promise<ReadLiveResult> {
     const storage = this.getStorage(streamId);
     const metadata = await storage.getMetadata();
 

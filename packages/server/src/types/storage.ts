@@ -26,13 +26,13 @@ export interface CreateStreamOptions {
   initialData?: Uint8Array[];
 }
 
-export interface ReadResult {
+export interface StorageReadResult {
   messages: StoredMessage[];
   nextOffset: string;
   upToDate: boolean;
 }
 
-export interface ReadLiveResult {
+export interface StorageReadLiveResult {
   messages: StoredMessage[];
   nextOffset: string;
   timedOut: boolean;
@@ -55,8 +55,8 @@ export interface StreamStorage {
 
   // Messages
   append(messages: Uint8Array[], seq?: string): Promise<string>;
-  read(afterOffset?: string): Promise<ReadResult>;
+  read(afterOffset?: string): Promise<StorageReadResult>;
 
   // Live reads (waits for new messages)
-  readLive(afterOffset: string, signal?: AbortSignal): Promise<ReadLiveResult>;
+  readLive(afterOffset: string, signal?: AbortSignal): Promise<StorageReadLiveResult>;
 }
