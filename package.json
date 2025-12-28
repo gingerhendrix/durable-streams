@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "workspaces": {
-    "packages": ["packages/*"],
+    "packages": ["packages/*", "examples/*"],
     "catalog": {
       "alchemy": "0.82.1",
       "@cloudflare/workers-types": "^4.20251228.0",
@@ -12,10 +12,11 @@
     }
   },
   "scripts": {
-    "deploy": "bun alchemy deploy",
-    "dev": "bun alchemy dev",
-    "destroy": "bun alchemy destroy",
-    "typecheck": "bun run --filter '*' typecheck"
+    "deploy": "bun --cwd examples/test-server alchemy deploy",
+    "dev": "bun --cwd examples/test-server alchemy dev",
+    "destroy": "bun --cwd examples/test-server alchemy destroy",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun --cwd examples/test-server test"
   },
   "dependencies": {},
   "devDependencies": {},

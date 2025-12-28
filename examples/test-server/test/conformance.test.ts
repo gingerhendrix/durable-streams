@@ -7,7 +7,7 @@ import { describe } from "vitest";
 
 describe(`Durable Object Server Implementation`, () => {
   const config = {
-    baseUrl: process.env.SERVER_BASE_URL || "http://localhost:1337/streams",
+    baseUrl: process.env.SERVER_BASE_URL || "http://localhost:1337",
   };
 
   runConformanceTests(config);

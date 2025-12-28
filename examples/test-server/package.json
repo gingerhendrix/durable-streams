@@ -1,11 +1,8 @@
 {
-  "name": "cf-durable-streams",
+  "name": "test-server",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "bun alchemy dev",
@@ -14,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "cf-durable-streams": "workspace:*",
     "@durable-streams/server-conformance-tests": "^0.1.4",
     "vitest": "^4.0.16"
   },

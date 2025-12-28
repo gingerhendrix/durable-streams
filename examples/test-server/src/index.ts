@@ -5,10 +5,8 @@
  * Wires together the HTTP handler, protocol, and storage layers.
  */
 
-import type { StreamStorage as StreamStorageInterface } from "./types/storage.ts";
-import { HttpHandler } from "./http.ts";
-import { StreamProtocol } from "./protocol.ts";
-import { StreamStorage } from "./storage.ts";
+import type { StreamStorageInterface } from "cf-durable-streams";
+import { HttpHandler, StreamProtocol, StreamStorage } from "cf-durable-streams";
 
 // Re-export the Durable Object for the runtime
 export { StreamStorage };
