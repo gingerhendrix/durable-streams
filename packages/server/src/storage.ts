@@ -3,7 +3,7 @@
  *
  * SQLite-backed Durable Object storage.
  * Extends DurableObject for RPC access from the protocol layer.
- * Uses the async storage API for compatibility.
+ * Uses the synchronous KV storage API for performance.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -16,34 +16,21 @@ import type {
   StoredMessage,
 } from "./types/storage.ts";
 
-// Empty env type since StreamStorage doesn't use env bindings
-type StreamStorageEnv = Record<string, never>;
-
 export class StreamStorage
-  extends DurableObject<StreamStorageEnv>
+  extends DurableObject
   implements StreamStorageInterface
 {
   private waiters: Set<() => void> = new Set();
   private metadata: StreamMetadata | null = null;
-  private metadataLoaded = false;
+  private counter: number = 0;
+  private currentOffset: string;
 
-  constructor(ctx: DurableObjectState, env: StreamStorageEnv) {
+  constructor(ctx: DurableObjectState, env: object) {
     super(ctx, env);
-    // Load metadata synchronously in constructor for memoization
-    this.loadMetadata();
-  }
-
-  private loadMetadata(): void {
-    // Use synchronous KV API if available, otherwise defer to first access
-    try {
-      const kv = (this.ctx.storage as any).kv;
-      if (kv) {
-        this.metadata = kv.get("metadata") ?? null;
-        this.metadataLoaded = true;
-      }
-    } catch {
-      // Fall back to async load on first access
-    }
+    this.metadata = ctx.storage.kv.get("metadata") ?? null;
+    this.counter = ctx.storage.kv.get("counter") ?? 0;
+    this.currentOffset =
+      ctx.storage.kv.get("currentOffset") ?? this.formatOffset(0);
   }
 
   /**
@@ -61,14 +48,15 @@ export class StreamStorage
       createdAt: Date.now(),
     };
 
-    await this.ctx.storage.put("metadata", metadata);
-    await this.ctx.storage.put("counter", 0);
+    this.ctx.storage.kv.put("metadata", metadata);
+    this.ctx.storage.kv.put("counter", 0);
     const initialOffset = this.formatOffset(0);
-    await this.ctx.storage.put("currentOffset", initialOffset);
+    this.ctx.storage.kv.put("currentOffset", initialOffset);
 
-    // Update memoized metadata
+    // Update memoized state
     this.metadata = metadata;
-    this.metadataLoaded = true;
+    this.counter = 0;
+    this.currentOffset = initialOffset;
 
     // Set alarm for TTL if configured
     if (options.ttlSeconds) {
@@ -92,59 +80,46 @@ export class StreamStorage
     }
     this.waiters.clear();
 
-    // Clear memoized metadata
+    // Clear memoized state
     this.metadata = null;
+    this.counter = 0;
+    this.currentOffset = this.formatOffset(0);
 
     // Delete all storage
     await this.ctx.storage.deleteAll();
   }
 
   async getMetadata(): Promise<StreamMetadata | null> {
-    // Return memoized metadata if already loaded
-    if (this.metadataLoaded) {
-      return this.metadata;
-    }
-
-    // Load from storage
-    this.metadata =
-      (await this.ctx.storage.get<StreamMetadata>("metadata")) ?? null;
-    this.metadataLoaded = true;
     return this.metadata;
   }
 
   async getCurrentOffset(): Promise<string> {
-    return (
-      (await this.ctx.storage.get<string>("currentOffset")) ??
-      this.formatOffset(0)
-    );
+    return this.currentOffset;
   }
 
   async append(messages: Uint8Array[], seq?: string): Promise<string> {
-    let counter = (await this.ctx.storage.get<number>("counter")) ?? 0;
     let lastOffset = "";
 
     for (const data of messages) {
-      counter++;
-      const offset = this.formatOffset(counter);
+      this.counter++;
+      const offset = this.formatOffset(this.counter);
       lastOffset = offset;
 
-      await this.ctx.storage.put(`message:${offset}`, {
+      this.ctx.storage.kv.put(`message:${offset}`, {
         data,
         offset,
         timestamp: Date.now(),
       } satisfies StoredMessage);
     }
 
-    await this.ctx.storage.put("counter", counter);
-    await this.ctx.storage.put("currentOffset", lastOffset);
+    this.ctx.storage.kv.put("counter", this.counter);
+    this.ctx.storage.kv.put("currentOffset", lastOffset);
+    this.currentOffset = lastOffset;
 
-    if (seq) {
-      const meta = await this.ctx.storage.get<StreamMetadata>("metadata");
-      if (meta) {
-        const updatedMeta = { ...meta, lastSeq: seq };
-        await this.ctx.storage.put("metadata", updatedMeta);
-        this.metadata = updatedMeta;
-      }
+    if (seq && this.metadata) {
+      const updatedMeta = { ...this.metadata, lastSeq: seq };
+      this.ctx.storage.kv.put("metadata", updatedMeta);
+      this.metadata = updatedMeta;
     }
 
     // Notify waiters
@@ -154,8 +129,6 @@ export class StreamStorage
   }
 
   async read(afterOffset?: string): Promise<ReadResult> {
-    const currentOffset = await this.getCurrentOffset();
-
     const listOptions: DurableObjectListOptions = {
       prefix: "message:",
     };
@@ -164,7 +137,7 @@ export class StreamStorage
       listOptions.startAfter = `message:${afterOffset}`;
     }
 
-    const entries = await this.ctx.storage.list<StoredMessage>(listOptions);
+    const entries = this.ctx.storage.kv.list<StoredMessage>(listOptions);
     const messages: StoredMessage[] = [];
 
     for (const [_, value] of entries) {
@@ -174,18 +147,18 @@ export class StreamStorage
     const nextOffset =
       messages.length > 0
         ? messages[messages.length - 1]!.offset
-        : currentOffset;
+        : this.currentOffset;
 
     return {
       messages,
       nextOffset,
-      upToDate: nextOffset === currentOffset,
+      upToDate: nextOffset === this.currentOffset,
     };
   }
 
   async readLive(
     afterOffset: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<ReadLiveResult> {
     // Check for existing messages
     const result = await this.read(afterOffset);
