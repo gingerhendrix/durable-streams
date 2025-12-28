@@ -6,8 +6,8 @@
   "workspaces": {
     "packages": ["packages/*"],
     "catalog": {
-      "alchemy": "0.64.0",
-      "@cloudflare/workers-types": "^4.20250805.0",
+      "alchemy": "0.82.1",
+      "@cloudflare/workers-types": "^4.20251228.0",
       "typescript": "^5.8.3"
     }
   },
@@ -17,10 +17,8 @@
     "destroy": "bun alchemy destroy",
     "typecheck": "bun run --filter '*' typecheck"
   },
-  "dependencies": {
-  },
-  "devDependencies": {
-  },
+  "dependencies": {},
+  "devDependencies": {},
   "overrides": {
     "@durable-streams/client": "^0.1.2"
   }
