@@ -174,7 +174,7 @@ export class StreamProtocol implements StreamProtocolInterface {
 
     if (Array.isArray(parsed)) {
       if (parsed.length === 0) {
-        throw new Error("Empty arrays not allowed in POST");
+        return [];  // Return empty array instead of throwing
       }
       // Flatten one level
       return parsed.map((item) =>

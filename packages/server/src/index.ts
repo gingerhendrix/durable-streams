@@ -40,7 +40,7 @@ export default {
     const protocol = new StreamProtocol(storageFactory);
 
     // Create handler with protocol
-    const handler = new HttpHandler(protocol);
+    const handler = new HttpHandler({ protocol });
 
     // Execute request
     return handler.fetch(request);

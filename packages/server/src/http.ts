@@ -7,17 +7,33 @@
 
 import type { StreamProtocolInterface } from "./types/protocol.ts";
 
+interface HttpHandlerOptions {
+  protocol: StreamProtocolInterface;
+  pathPrefix?: string;      // default: "/streams/"
+  maxMessageSize?: number;  // default: 1MB (1024 * 1024)
+}
+
 export class HttpHandler {
-  constructor(private protocol: StreamProtocolInterface) {}
+  private protocol: StreamProtocolInterface;
+  private pathPrefix: string;
+  private maxMessageSize: number;
+
+  constructor(options: HttpHandlerOptions) {
+    this.protocol = options.protocol;
+    this.pathPrefix = options.pathPrefix ?? "/streams/";
+    this.maxMessageSize = options.maxMessageSize ?? 1024 * 1024;
+  }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    // Extract stream path - everything after /streams/
-    const streamPath = url.pathname.replace(/^\/streams\//, "");
+    // Extract stream path - everything after the path prefix
+    const prefix = this.pathPrefix.endsWith('/') ? this.pathPrefix : this.pathPrefix + '/';
+    const regex = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+    const streamPath = url.pathname.replace(regex, "");
 
     if (!streamPath || streamPath === url.pathname) {
-      return new Response("Stream path required: /streams/{path}", {
+      return new Response(`Stream path required: ${prefix}{path}`, {
         status: 400,
       });
     }
@@ -87,42 +103,37 @@ export class HttpHandler {
       return new Response("Payload too large", { status: 413 });
     }
 
-    let result;
-    try {
-      result = await this.protocol.create(streamId, {
-        contentType,
-        ttlSeconds,
-        expiresAt: expiresAtHeader ?? undefined,
-        initialData:
-          initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined,
-      });
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("Empty arrays not allowed")
-      ) {
-        result = await this.protocol.create(streamId, {
-          contentType,
-          ttlSeconds,
-          expiresAt: expiresAtHeader ?? undefined,
-          initialData: undefined,
-        });
-      } else if (error instanceof SyntaxError) {
-        return new Response("Invalid JSON", { status: 400 });
-      } else if (
-        error instanceof Error &&
-        (error.message.includes("value too large") ||
-          error.message.includes("Value too large") ||
-          error.message.includes("exceeds") ||
-          error.message.includes("too big") ||
-          error.message.includes("limit"))
-      ) {
-        console.error("Payload too large for storage:", error);
-        return new Response("Payload too large", { status: 413 });
-      } else {
+    // Validate max message size at HTTP layer
+    if (initialData.byteLength > this.maxMessageSize) {
+      return new Response("Payload too large", { status: 413 });
+    }
+
+    // Check for empty arrays in JSON content-type before calling protocol
+    let effectiveInitialData: Uint8Array | undefined =
+      initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined;
+
+    if (effectiveInitialData && contentType.toLowerCase().startsWith("application/json")) {
+      try {
+        const text = new TextDecoder().decode(effectiveInitialData);
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length === 0) {
+          // Empty array in create - treat as no initial data
+          effectiveInitialData = undefined;
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          return new Response("Invalid JSON", { status: 400 });
+        }
         throw error;
       }
     }
+
+    const result = await this.protocol.create(streamId, {
+      contentType,
+      ttlSeconds,
+      expiresAt: expiresAtHeader ?? undefined,
+      initialData: effectiveInitialData,
+    });
 
     if (result.status === "conflict") {
       return new Response("Stream exists with different configuration", {
@@ -164,35 +175,32 @@ export class HttpHandler {
       return new Response("Empty body not allowed", { status: 400 });
     }
 
-    let result;
-    try {
-      result = await this.protocol.append(streamId, {
-        data: new Uint8Array(data),
-        contentType,
-        seq,
-      });
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("Empty arrays not allowed")
-      ) {
-        return new Response("Empty arrays not allowed", { status: 400 });
-      } else if (error instanceof SyntaxError) {
-        return new Response("Invalid JSON", { status: 400 });
-      } else if (
-        error instanceof Error &&
-        (error.message.includes("value too large") ||
-          error.message.includes("Value too large") ||
-          error.message.includes("exceeds") ||
-          error.message.includes("too big") ||
-          error.message.includes("limit"))
-      ) {
-        console.error("Payload too large for storage:", error);
-        return new Response("Payload too large", { status: 413 });
-      } else {
+    // Validate max message size at HTTP layer
+    if (data.byteLength > this.maxMessageSize) {
+      return new Response("Payload too large", { status: 413 });
+    }
+
+    // Check for empty arrays in JSON content-type before calling protocol
+    if (contentType.toLowerCase().startsWith("application/json")) {
+      try {
+        const text = new TextDecoder().decode(data);
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length === 0) {
+          return new Response("Empty arrays not allowed", { status: 400 });
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          return new Response("Invalid JSON", { status: 400 });
+        }
         throw error;
       }
     }
+
+    const result = await this.protocol.append(streamId, {
+      data: new Uint8Array(data),
+      contentType,
+      seq,
+    });
 
     if (result.status === "not-found") {
       return new Response("Stream not found", { status: 404 });
