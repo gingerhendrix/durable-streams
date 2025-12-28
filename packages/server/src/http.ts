@@ -2,15 +2,14 @@
  * HTTP Handler
  *
  * Handles HTTP requests and routes them to the appropriate protocol methods.
- * Receives protocol via constructor - protocol is created once with factory.
  */
 
 import type { StreamProtocolInterface } from "./types/protocol.ts";
 
 interface HttpHandlerOptions {
   protocol: StreamProtocolInterface;
-  pathPrefix?: string;      // default: "/streams/"
-  maxMessageSize?: number;  // default: 1MB (1024 * 1024)
+  pathPrefix?: string; // default: "/"
+  maxMessageSize?: number; // default: 1MB (1024 * 1024)
 }
 
 export class HttpHandler {
@@ -20,7 +19,7 @@ export class HttpHandler {
 
   constructor(options: HttpHandlerOptions) {
     this.protocol = options.protocol;
-    this.pathPrefix = options.pathPrefix ?? "/streams/";
+    this.pathPrefix = options.pathPrefix ?? "/";
     this.maxMessageSize = options.maxMessageSize ?? 1024 * 1024;
   }
 
@@ -28,8 +27,12 @@ export class HttpHandler {
     const url = new URL(request.url);
 
     // Extract stream path - everything after the path prefix
-    const prefix = this.pathPrefix.endsWith('/') ? this.pathPrefix : this.pathPrefix + '/';
-    const regex = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+    const prefix = this.pathPrefix.endsWith("/")
+      ? this.pathPrefix
+      : this.pathPrefix + "/";
+    const regex = new RegExp(
+      `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+    );
     const streamPath = url.pathname.replace(regex, "");
 
     if (!streamPath || streamPath === url.pathname) {
@@ -63,7 +66,7 @@ export class HttpHandler {
 
   private async handleCreate(
     request: Request,
-    streamId: string
+    streamId: string,
   ): Promise<Response> {
     const contentType =
       request.headers.get("content-type") ?? "application/octet-stream";
@@ -81,7 +84,7 @@ export class HttpHandler {
         "Cannot specify both Stream-TTL and Stream-Expires-At",
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -89,7 +92,9 @@ export class HttpHandler {
     if (expiresAtHeader) {
       const parsed = new Date(expiresAtHeader);
       if (isNaN(parsed.getTime())) {
-        return new Response("Invalid Stream-Expires-At format", { status: 400 });
+        return new Response("Invalid Stream-Expires-At format", {
+          status: 400,
+        });
       }
     }
 
@@ -112,7 +117,10 @@ export class HttpHandler {
     let effectiveInitialData: Uint8Array | undefined =
       initialData.byteLength > 0 ? new Uint8Array(initialData) : undefined;
 
-    if (effectiveInitialData && contentType.toLowerCase().startsWith("application/json")) {
+    if (
+      effectiveInitialData &&
+      contentType.toLowerCase().startsWith("application/json")
+    ) {
       try {
         const text = new TextDecoder().decode(effectiveInitialData);
         const parsed = JSON.parse(text);
@@ -154,7 +162,7 @@ export class HttpHandler {
 
   private async handleAppend(
     request: Request,
-    streamId: string
+    streamId: string,
   ): Promise<Response> {
     const contentType = request.headers.get("content-type");
     if (!contentType) {
@@ -225,7 +233,7 @@ export class HttpHandler {
   private async handleRead(
     request: Request,
     url: URL,
-    streamId: string
+    streamId: string,
   ): Promise<Response> {
     const offset = url.searchParams.get("offset") ?? undefined;
     const live = url.searchParams.get("live");
@@ -281,7 +289,7 @@ export class HttpHandler {
     let body: string | Uint8Array;
     if (isJson) {
       const items = result.messages.map((msg) =>
-        new TextDecoder().decode(msg.data)
+        new TextDecoder().decode(msg.data),
       );
       body = `[${items.join(",")}]`;
     } else if (isText) {
@@ -291,7 +299,7 @@ export class HttpHandler {
     } else {
       const totalLength = result.messages.reduce(
         (acc, msg) => acc + msg.data.length,
-        0
+        0,
       );
       const combined = new Uint8Array(totalLength);
       let pos = 0;
@@ -316,7 +324,7 @@ export class HttpHandler {
   private async handleLongPoll(
     streamId: string,
     offset: string,
-    cursor?: string
+    cursor?: string,
   ): Promise<Response> {
     const result = await this.protocol.readLive(streamId, {
       offset,
@@ -347,7 +355,7 @@ export class HttpHandler {
     let body: string | Uint8Array;
     if (isJson && result.messages.length > 0) {
       const items = result.messages.map((msg) =>
-        new TextDecoder().decode(msg.data)
+        new TextDecoder().decode(msg.data),
       );
       body = `[${items.join(",")}]`;
     } else if (isText) {
@@ -357,7 +365,7 @@ export class HttpHandler {
     } else {
       const totalLength = result.messages.reduce(
         (acc, msg) => acc + msg.data.length,
-        0
+        0,
       );
       const combined = new Uint8Array(totalLength);
       let pos = 0;
@@ -381,7 +389,7 @@ export class HttpHandler {
   private async handleSSE(
     streamId: string,
     offset: string,
-    cursor?: string
+    cursor?: string,
   ): Promise<Response> {
     const metadata = await this.protocol.metadata(streamId);
 
@@ -397,7 +405,7 @@ export class HttpHandler {
     if (!isText && !isJson) {
       return new Response(
         "SSE mode requires text/* or application/json content type",
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -413,7 +421,7 @@ export class HttpHandler {
       const CURSOR_INTERVAL_MS = 20_000;
       const now = Date.now();
       const currentInterval = Math.floor(
-        (now - CURSOR_EPOCH) / CURSOR_INTERVAL_MS
+        (now - CURSOR_EPOCH) / CURSOR_INTERVAL_MS,
       );
 
       if (!previous) {
@@ -448,14 +456,14 @@ export class HttpHandler {
           if (initialResult.messages.length > 0) {
             if (isJson) {
               const items = initialResult.messages.map((msg) =>
-                decoder.decode(msg.data)
+                decoder.decode(msg.data),
               );
               controller.enqueue(encoder.encode("event: data\n"));
               controller.enqueue(encoder.encode("data: [\n"));
               for (let i = 0; i < items.length; i++) {
                 const suffix = i < items.length - 1 ? "," : "";
                 controller.enqueue(
-                  encoder.encode(`data: ${items[i]}${suffix}\n`)
+                  encoder.encode(`data: ${items[i]}${suffix}\n`),
                 );
               }
               controller.enqueue(encoder.encode("data: ]\n"));
@@ -488,7 +496,7 @@ export class HttpHandler {
           }
           controller.enqueue(encoder.encode("event: control\n"));
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(initialControlData)}\n`)
+            encoder.encode(`data: ${JSON.stringify(initialControlData)}\n`),
           );
           controller.enqueue(encoder.encode("\n"));
 
@@ -515,14 +523,14 @@ export class HttpHandler {
             if (result.messages.length > 0) {
               if (isJson) {
                 const items = result.messages.map((msg) =>
-                  decoder.decode(msg.data)
+                  decoder.decode(msg.data),
                 );
                 controller.enqueue(encoder.encode("event: data\n"));
                 controller.enqueue(encoder.encode("data: [\n"));
                 for (let i = 0; i < items.length; i++) {
                   const suffix = i < items.length - 1 ? "," : "";
                   controller.enqueue(
-                    encoder.encode(`data: ${items[i]}${suffix}\n`)
+                    encoder.encode(`data: ${items[i]}${suffix}\n`),
                   );
                 }
                 controller.enqueue(encoder.encode("data: ]\n"));
@@ -553,7 +561,7 @@ export class HttpHandler {
             }
             controller.enqueue(encoder.encode("event: control\n"));
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(controlData)}\n`)
+              encoder.encode(`data: ${JSON.stringify(controlData)}\n`),
             );
             controller.enqueue(encoder.encode("\n"));
 

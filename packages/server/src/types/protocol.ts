@@ -5,7 +5,7 @@
  * JSON mode processing, cursor generation, and orchestration.
  */
 
-import type { StoredMessage } from "./storage.ts";
+import type { StoredMessage, StreamStorage } from "./storage.ts";
 
 // === Protocol Inputs ===
 
@@ -76,7 +76,7 @@ export interface DeleteResult {
 
 // === Storage Factory Type ===
 
-export type StorageFactory = (streamId: string) => import("./storage.ts").StreamStorage;
+export type StorageFactory = (streamId: string) => StreamStorage;
 
 // === Protocol Interface ===
 
