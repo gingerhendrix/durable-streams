@@ -9,21 +9,12 @@
       "version": "0.0.1",
       "dependencies": {
         "@durable-streams/server-conformance-tests": "^0.1.4",
-        "cf-durable-streams-types": "workspace:*",
         "vitest": "^4.0.16",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
         "@durable-streams/conformance-tests": "file:../../../../scratch/durable-streams/packages/conformance-tests",
         "alchemy": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/types": {
-      "name": "cf-durable-streams-types",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@cloudflare/workers-types": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -512,8 +503,6 @@
     "cac": ["cac@6.7.14", "", {}, "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="],
 
     "cf-durable-streams": ["cf-durable-streams@workspace:packages/server"],
-
-    "cf-durable-streams-types": ["cf-durable-streams-types@workspace:packages/types"],
 
     "chai": ["chai@5.3.3", "", { "dependencies": { "assertion-error": "^2.0.1", "check-error": "^2.1.1", "deep-eql": "^5.0.1", "loupe": "^3.1.0", "pathval": "^2.0.0" } }, "sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw=="],
 

@@ -1,39 +1,44 @@
 /**
  * Protocol Layer Implementation
- * 
+ *
  * Handles validation, JSON mode processing, cursor generation,
  * and orchestration between HTTP and storage layers.
  */
 
 import type {
-  StreamProtocol,
+  StreamProtocolInterface,
+  StorageFactory,
   CreateOptions,
   CreateResult,
   AppendOptions,
   AppendResult,
   ReadOptions,
-  ReadResult,
   ReadLiveOptions,
-  ReadLiveResult,
   MetadataResult,
   DeleteResult,
-} from "cf-durable-streams-types/protocol";
-import type { StreamStorage, StreamMetadata } from "cf-durable-streams-types/storage";
+} from "./types/protocol.ts";
+import type { StreamMetadata } from "./types/storage.ts";
+import type { ReadResult as ProtocolReadResult } from "./types/protocol.ts";
+import type { ReadLiveResult as ProtocolReadLiveResult } from "./types/protocol.ts";
 
 const CURSOR_EPOCH = new Date("2024-10-09T00:00:00.000Z").getTime();
 const CURSOR_INTERVAL_MS = 20_000;
 
-export class StreamProtocolImpl implements StreamProtocol {
-  constructor(private storage: StreamStorage) {}
+export class StreamProtocol implements StreamProtocolInterface {
+  constructor(private getStorage: StorageFactory) {}
 
-  async create(options: CreateOptions): Promise<CreateResult> {
-    const existing = await this.storage.getMetadata();
+  async create(
+    streamId: string,
+    options: CreateOptions
+  ): Promise<CreateResult> {
+    const storage = this.getStorage(streamId);
+    const existing = await storage.getMetadata();
 
     if (existing) {
       if (!this.configMatches(existing, options)) {
         return { status: "conflict", nextOffset: "", contentType: "" };
       }
-      const offset = await this.storage.getCurrentOffset();
+      const offset = await storage.getCurrentOffset();
       return {
         status: "exists",
         nextOffset: offset,
@@ -43,7 +48,7 @@ export class StreamProtocolImpl implements StreamProtocol {
 
     const contentType = options.contentType ?? "application/octet-stream";
 
-    const nextOffset = await this.storage.createStream({
+    const nextOffset = await storage.createStream({
       contentType,
       ttlSeconds: options.ttlSeconds,
       expiresAt: options.expiresAt,
@@ -55,8 +60,12 @@ export class StreamProtocolImpl implements StreamProtocol {
     return { status: "created", nextOffset, contentType };
   }
 
-  async append(options: AppendOptions): Promise<AppendResult> {
-    const metadata = await this.storage.getMetadata();
+  async append(
+    streamId: string,
+    options: AppendOptions
+  ): Promise<AppendResult> {
+    const storage = this.getStorage(streamId);
+    const metadata = await storage.getMetadata();
 
     if (!metadata) {
       return { status: "not-found" };
@@ -72,13 +81,17 @@ export class StreamProtocolImpl implements StreamProtocol {
 
     const processed = this.processData(options.data, metadata.contentType);
 
-    const nextOffset = await this.storage.append(processed, options.seq);
+    const nextOffset = await storage.append(processed, options.seq);
 
     return { status: "ok", nextOffset };
   }
 
-  async read(options: ReadOptions): Promise<ReadResult> {
-    const metadata = await this.storage.getMetadata();
+  async read(
+    streamId: string,
+    options: ReadOptions
+  ): Promise<ProtocolReadResult> {
+    const storage = this.getStorage(streamId);
+    const metadata = await storage.getMetadata();
 
     if (!metadata) {
       return {
@@ -90,13 +103,17 @@ export class StreamProtocolImpl implements StreamProtocol {
     }
 
     const offset = this.normalizeOffset(options.offset);
-    const { messages, nextOffset, upToDate } = await this.storage.read(offset);
+    const { messages, nextOffset, upToDate } = await storage.read(offset);
 
     return { status: "ok", messages, nextOffset, upToDate };
   }
 
-  async readLive(options: ReadLiveOptions): Promise<ReadLiveResult> {
-    const metadata = await this.storage.getMetadata();
+  async readLive(
+    streamId: string,
+    options: ReadLiveOptions
+  ): Promise<ProtocolReadLiveResult> {
+    const storage = this.getStorage(streamId);
+    const metadata = await storage.getMetadata();
 
     if (!metadata) {
       return {
@@ -108,7 +125,7 @@ export class StreamProtocolImpl implements StreamProtocol {
       };
     }
 
-    const { messages, nextOffset, timedOut } = await this.storage.readLive(
+    const { messages, nextOffset, timedOut } = await storage.readLive(
       options.offset,
       options.signal
     );
@@ -122,24 +139,26 @@ export class StreamProtocolImpl implements StreamProtocol {
     };
   }
 
-  async metadata(): Promise<MetadataResult> {
-    const meta = await this.storage.getMetadata();
+  async metadata(streamId: string): Promise<MetadataResult> {
+    const storage = this.getStorage(streamId);
+    const meta = await storage.getMetadata();
     if (!meta) return { status: "not-found" };
 
     return {
       status: "ok",
       contentType: meta.contentType,
-      nextOffset: await this.storage.getCurrentOffset(),
+      nextOffset: await storage.getCurrentOffset(),
       ttlSeconds: meta.ttlSeconds,
       expiresAt: meta.expiresAt,
     };
   }
 
-  async delete(): Promise<DeleteResult> {
-    const exists = await this.storage.getMetadata();
+  async delete(streamId: string): Promise<DeleteResult> {
+    const storage = this.getStorage(streamId);
+    const exists = await storage.getMetadata();
     if (!exists) return { status: "not-found" };
 
-    await this.storage.deleteAll();
+    await storage.deleteAll();
     return { status: "ok" };
   }
 
@@ -198,7 +217,9 @@ export class StreamProtocolImpl implements StreamProtocol {
 
   private generateCursor(previous?: string): string {
     const now = Date.now();
-    const currentInterval = Math.floor((now - CURSOR_EPOCH) / CURSOR_INTERVAL_MS);
+    const currentInterval = Math.floor(
+      (now - CURSOR_EPOCH) / CURSOR_INTERVAL_MS
+    );
 
     if (!previous) {
       return String(currentInterval);

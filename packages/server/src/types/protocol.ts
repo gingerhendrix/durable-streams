@@ -1,6 +1,6 @@
 /**
  * Protocol Layer Types
- * 
+ *
  * Types for the business logic layer that handles validation,
  * JSON mode processing, cursor generation, and orchestration.
  */
@@ -74,19 +74,44 @@ export interface DeleteResult {
   status: "ok" | "not-found";
 }
 
+// === Storage Factory Type ===
+
+/**
+ * A storage stub that has methods for accessing stream data.
+ * This mirrors the StreamStorage class's public RPC methods.
+ */
+export interface StorageStub {
+  getMetadata(): Promise<import("./storage.ts").StreamMetadata | null>;
+  getCurrentOffset(): Promise<string>;
+  createStream(
+    options: import("./storage.ts").CreateStreamOptions
+  ): Promise<string>;
+  append(messages: Uint8Array[], seq?: string): Promise<string>;
+  read(afterOffset?: string): Promise<import("./storage.ts").ReadResult>;
+  readLive(
+    afterOffset: string,
+    signal?: AbortSignal
+  ): Promise<import("./storage.ts").ReadLiveResult>;
+  deleteAll(): Promise<void>;
+}
+
+export type StorageFactory = (streamId: string) => StorageStub;
+
 // === Protocol Interface ===
 
 /**
  * Protocol Layer Interface
- * 
+ *
  * Handles validation, JSON mode processing, cursor generation,
  * and orchestration between HTTP and storage layers.
+ *
+ * All methods take streamId as first parameter to identify the stream.
  */
-export interface StreamProtocol {
-  create(options: CreateOptions): Promise<CreateResult>;
-  append(options: AppendOptions): Promise<AppendResult>;
-  read(options: ReadOptions): Promise<ReadResult>;
-  readLive(options: ReadLiveOptions): Promise<ReadLiveResult>;
-  metadata(): Promise<MetadataResult>;
-  delete(): Promise<DeleteResult>;
+export interface StreamProtocolInterface {
+  create(streamId: string, options: CreateOptions): Promise<CreateResult>;
+  append(streamId: string, options: AppendOptions): Promise<AppendResult>;
+  read(streamId: string, options: ReadOptions): Promise<ReadResult>;
+  readLive(streamId: string, options: ReadLiveOptions): Promise<ReadLiveResult>;
+  metadata(streamId: string): Promise<MetadataResult>;
+  delete(streamId: string): Promise<DeleteResult>;
 }

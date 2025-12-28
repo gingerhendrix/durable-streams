@@ -14,11 +14,10 @@ import type {
   ReadResult,
   ReadLiveResult,
   StoredMessage,
-} from "cf-durable-streams-types/storage";
+} from "./types/storage.ts";
 
-interface StreamStorageEnv {
-  // Env bindings if needed
-}
+// Empty env type since StreamStorage doesn't use env bindings
+type StreamStorageEnv = Record<string, never>;
 
 export class StreamStorage
   extends DurableObject<StreamStorageEnv>

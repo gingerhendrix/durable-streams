@@ -2,17 +2,13 @@
  * HTTP Handler
  *
  * Handles HTTP requests and routes them to the appropriate protocol methods.
- * Receives storage factory via constructor to get DO stubs per stream.
+ * Receives protocol via constructor - protocol is created once with factory.
  */
 
-import type { StreamProtocol } from "cf-durable-streams-types/protocol";
-import type { StreamStorage, StoredMessage } from "cf-durable-streams-types/storage";
-import { StreamProtocolImpl } from "./protocol.ts";
-
-type StorageFactory = (streamId: string) => DurableObjectStub<StreamStorage>;
+import type { StreamProtocolInterface } from "./types/protocol.ts";
 
 export class HttpHandler {
-  constructor(private getStorage: StorageFactory) {}
+  constructor(private protocol: StreamProtocolInterface) {}
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -26,24 +22,20 @@ export class HttpHandler {
       });
     }
 
-    // Get storage stub and create protocol for this stream
-    const storage = this.getStorage(streamPath);
-    const protocol = new StreamProtocolImpl(storage);
-
     const method = request.method;
 
     try {
       switch (method) {
         case "PUT":
-          return await this.handleCreate(request, storage, protocol);
+          return await this.handleCreate(request, streamPath);
         case "POST":
-          return await this.handleAppend(request, storage, protocol);
+          return await this.handleAppend(request, streamPath);
         case "GET":
-          return await this.handleRead(request, url, storage, protocol);
+          return await this.handleRead(request, url, streamPath);
         case "HEAD":
-          return await this.handleMetadata(storage, protocol);
+          return await this.handleMetadata(streamPath);
         case "DELETE":
-          return await this.handleDelete(storage, protocol);
+          return await this.handleDelete(streamPath);
         default:
           return new Response("Method not allowed", { status: 405 });
       }
@@ -55,8 +47,7 @@ export class HttpHandler {
 
   private async handleCreate(
     request: Request,
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol
+    streamId: string
   ): Promise<Response> {
     const contentType =
       request.headers.get("content-type") ?? "application/octet-stream";
@@ -98,7 +89,7 @@ export class HttpHandler {
 
     let result;
     try {
-      result = await protocol.create({
+      result = await this.protocol.create(streamId, {
         contentType,
         ttlSeconds,
         expiresAt: expiresAtHeader ?? undefined,
@@ -110,7 +101,7 @@ export class HttpHandler {
         error instanceof Error &&
         error.message.includes("Empty arrays not allowed")
       ) {
-        result = await protocol.create({
+        result = await this.protocol.create(streamId, {
           contentType,
           ttlSeconds,
           expiresAt: expiresAtHeader ?? undefined,
@@ -152,8 +143,7 @@ export class HttpHandler {
 
   private async handleAppend(
     request: Request,
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol
+    streamId: string
   ): Promise<Response> {
     const contentType = request.headers.get("content-type");
     if (!contentType) {
@@ -176,7 +166,7 @@ export class HttpHandler {
 
     let result;
     try {
-      result = await protocol.append({
+      result = await this.protocol.append(streamId, {
         data: new Uint8Array(data),
         contentType,
         seq,
@@ -227,8 +217,7 @@ export class HttpHandler {
   private async handleRead(
     request: Request,
     url: URL,
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol
+    streamId: string
   ): Promise<Response> {
     const offset = url.searchParams.get("offset") ?? undefined;
     const live = url.searchParams.get("live");
@@ -246,14 +235,14 @@ export class HttpHandler {
       }
 
       if (live === "sse") {
-        return await this.handleSSE(storage, protocol, offset, cursor);
+        return await this.handleSSE(streamId, offset, cursor);
       }
 
-      return await this.handleLongPoll(storage, protocol, offset, cursor);
+      return await this.handleLongPoll(streamId, offset, cursor);
     }
 
     // Regular catch-up read
-    const result = await protocol.read({ offset });
+    const result = await this.protocol.read(streamId, { offset });
 
     if (result.status === "not-found") {
       return new Response("Stream not found", { status: 404 });
@@ -276,8 +265,8 @@ export class HttpHandler {
     }
 
     // Get metadata to determine content type
-    const metadata = await storage.getMetadata();
-    const contentTypeLower = metadata?.contentType.toLowerCase() ?? "";
+    const metadata = await this.protocol.metadata(streamId);
+    const contentTypeLower = metadata?.contentType?.toLowerCase() ?? "";
     const isJson = contentTypeLower.startsWith("application/json");
     const isText = contentTypeLower.startsWith("text/");
 
@@ -307,7 +296,7 @@ export class HttpHandler {
 
     return new Response(body, {
       headers: {
-        "content-type": metadata!.contentType,
+        "content-type": metadata.contentType!,
         "stream-next-offset": result.nextOffset,
         ...(result.upToDate ? { "stream-up-to-date": "true" } : {}),
         etag,
@@ -317,12 +306,11 @@ export class HttpHandler {
   }
 
   private async handleLongPoll(
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol,
+    streamId: string,
     offset: string,
     cursor?: string
   ): Promise<Response> {
-    const result = await protocol.readLive({
+    const result = await this.protocol.readLive(streamId, {
       offset,
       mode: "long-poll",
       cursor,
@@ -343,8 +331,8 @@ export class HttpHandler {
       });
     }
 
-    const metadata = await storage.getMetadata();
-    const contentTypeLower = metadata?.contentType.toLowerCase() ?? "";
+    const metadata = await this.protocol.metadata(streamId);
+    const contentTypeLower = metadata?.contentType?.toLowerCase() ?? "";
     const isJson = contentTypeLower.startsWith("application/json");
     const isText = contentTypeLower.startsWith("text/");
 
@@ -374,7 +362,7 @@ export class HttpHandler {
 
     return new Response(body, {
       headers: {
-        "content-type": metadata!.contentType,
+        "content-type": metadata.contentType!,
         "stream-next-offset": result.nextOffset,
         "stream-up-to-date": "true",
         "stream-cursor": result.cursor,
@@ -383,19 +371,18 @@ export class HttpHandler {
   }
 
   private async handleSSE(
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol,
+    streamId: string,
     offset: string,
     cursor?: string
   ): Promise<Response> {
-    const metadata = await storage.getMetadata();
+    const metadata = await this.protocol.metadata(streamId);
 
-    if (!metadata) {
+    if (metadata.status === "not-found") {
       return new Response("Stream not found", { status: 404 });
     }
 
     // SSE only valid for text/* or application/json
-    const contentTypeLower = metadata.contentType.toLowerCase();
+    const contentTypeLower = metadata.contentType!.toLowerCase();
     const isText = contentTypeLower.startsWith("text/");
     const isJson = contentTypeLower.startsWith("application/json");
 
@@ -434,11 +421,13 @@ export class HttpHandler {
       return String(previousInterval + jitterIntervals);
     };
 
+    const protocol = this.protocol;
+
     const stream = new ReadableStream({
       start: async (controller) => {
         try {
           // First, do a non-blocking read
-          const initialResult = await protocol.read({
+          const initialResult = await protocol.read(streamId, {
             offset: currentOffset === "-1" ? undefined : currentOffset,
           });
 
@@ -504,7 +493,7 @@ export class HttpHandler {
               return;
             }
 
-            const result = await protocol.readLive({
+            const result = await protocol.readLive(streamId, {
               offset: currentOffset,
               mode: "sse",
               cursor: currentCursor,
@@ -583,11 +572,8 @@ export class HttpHandler {
     });
   }
 
-  private async handleMetadata(
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol
-  ): Promise<Response> {
-    const result = await protocol.metadata();
+  private async handleMetadata(streamId: string): Promise<Response> {
+    const result = await this.protocol.metadata(streamId);
 
     if (result.status === "not-found") {
       return new Response("Stream not found", { status: 404 });
@@ -606,11 +592,8 @@ export class HttpHandler {
     });
   }
 
-  private async handleDelete(
-    storage: DurableObjectStub<StreamStorage>,
-    protocol: StreamProtocol
-  ): Promise<Response> {
-    const result = await protocol.delete();
+  private async handleDelete(streamId: string): Promise<Response> {
+    const result = await this.protocol.delete(streamId);
 
     if (result.status === "not-found") {
       return new Response("Stream not found", { status: 404 });

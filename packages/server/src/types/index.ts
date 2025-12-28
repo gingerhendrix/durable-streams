@@ -1,12 +1,14 @@
 /**
  * Durable Streams Types
- * 
+ *
  * Shared TypeScript type definitions for protocol and storage layers.
  */
 
 export * from "./storage.ts";
 export type {
-  StreamProtocol,
+  StreamProtocolInterface,
+  StorageFactory,
+  StorageStub,
   CreateOptions,
   AppendOptions,
   ReadOptions,

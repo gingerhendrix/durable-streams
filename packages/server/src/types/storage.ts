@@ -1,6 +1,6 @@
 /**
  * Storage Layer Types
- * 
+ *
  * Types for the persistence layer that handles offset generation,
  * message storage, and TTL management using Durable Objects.
  */
@@ -40,7 +40,7 @@ export interface ReadLiveResult {
 
 /**
  * Storage Layer Interface
- * 
+ *
  * Handles persistence using SQLite-backed Durable Objects with
  * the synchronous KV API (ctx.storage.kv).
  */
@@ -48,15 +48,15 @@ export interface StreamStorage {
   // Lifecycle
   createStream(options: CreateStreamOptions): Promise<string>;
   deleteAll(): Promise<void>;
-  
+
   // Metadata
   getMetadata(): Promise<StreamMetadata | null>;
   getCurrentOffset(): Promise<string>;
-  
+
   // Messages
   append(messages: Uint8Array[], seq?: string): Promise<string>;
   read(afterOffset?: string): Promise<ReadResult>;
-  
+
   // Live reads (waits for new messages)
   readLive(afterOffset: string, signal?: AbortSignal): Promise<ReadLiveResult>;
 }
