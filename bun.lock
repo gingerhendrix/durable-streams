@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "durable-streams",
@@ -22,6 +23,28 @@
     "packages/cf-durable-streams": {
       "name": "cf-durable-streams",
       "version": "0.0.1",
+      "dependencies": {
+        "@durable-streams/core": "workspace:*",
+        "@durable-streams/storage-durable-object": "workspace:*",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/core": {
+      "name": "@durable-streams/core",
+      "version": "0.0.1",
+      "devDependencies": {
+        "typescript": "catalog:",
+      },
+    },
+    "packages/storage-durable-object": {
+      "name": "@durable-streams/storage-durable-object",
+      "version": "0.0.1",
+      "dependencies": {
+        "@durable-streams/core": "workspace:*",
+      },
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
         "typescript": "catalog:",
@@ -129,7 +152,11 @@
 
     "@durable-streams/client": ["@durable-streams/client@0.1.2", "", { "dependencies": { "@microsoft/fetch-event-source": "^2.0.1", "fastq": "^1.19.1" } }, "sha512-S/UHLW4y6c0jBWKSJJ7n+Ev5Jg5Gxiyj8Ux8+iowDt0KhsFp5l2p2RvLKdkV74BCinwSd0zf2ehtM0x0wJZXYA=="],
 
+    "@durable-streams/core": ["@durable-streams/core@workspace:packages/core"],
+
     "@durable-streams/server-conformance-tests": ["@durable-streams/server-conformance-tests@0.1.4", "", { "dependencies": { "@durable-streams/client": "0.1.2", "fast-check": "^4.4.0", "vitest": "^4.0.0" }, "bin": { "server-conformance-tests": "dist/cli.js", "durable-streams-server-conformance": "dist/cli.js", "durable-streams-server-conformance-dev": "bin/conformance-dev.mjs" } }, "sha512-xAqYd7SHq0RCBA+b/AkLMIi9TiidsH4BO+cDTck6dj5Xact6Esb+QHGx3tXaySYcfEIgjnicufHLepQ3PSB0vg=="],
+
+    "@durable-streams/storage-durable-object": ["@durable-streams/storage-durable-object@workspace:packages/storage-durable-object"],
 
     "@emnapi/core": ["@emnapi/core@1.7.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg=="],
 

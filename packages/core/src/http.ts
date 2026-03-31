@@ -286,7 +286,7 @@ export class HttpHandler {
     const isJson = contentTypeLower.startsWith("application/json");
     const isText = contentTypeLower.startsWith("text/");
 
-    let body: string | Uint8Array;
+    let body: BodyInit;
     if (isJson) {
       const items = result.messages.map((msg) =>
         new TextDecoder().decode(msg.data),
@@ -307,7 +307,7 @@ export class HttpHandler {
         combined.set(msg.data, pos);
         pos += msg.data.length;
       }
-      body = combined;
+      body = combined.buffer as ArrayBuffer;
     }
 
     return new Response(body, {
@@ -352,7 +352,7 @@ export class HttpHandler {
     const isJson = contentTypeLower.startsWith("application/json");
     const isText = contentTypeLower.startsWith("text/");
 
-    let body: string | Uint8Array;
+    let body: BodyInit;
     if (isJson && result.messages.length > 0) {
       const items = result.messages.map((msg) =>
         new TextDecoder().decode(msg.data),
@@ -373,7 +373,7 @@ export class HttpHandler {
         combined.set(msg.data, pos);
         pos += msg.data.length;
       }
-      body = combined;
+      body = combined.buffer as ArrayBuffer;
     }
 
     return new Response(body, {

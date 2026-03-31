@@ -1,5 +1,5 @@
 {
-  "name": "cf-durable-streams",
+  "name": "@durable-streams/core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,12 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@durable-streams/core": "workspace:*",
-    "@durable-streams/storage-durable-object": "workspace:*"
-  },
   "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
     "typescript": "catalog:"
   }
 }

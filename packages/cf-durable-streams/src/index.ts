@@ -1,15 +1,21 @@
 /**
  * Cloudflare Durable Streams
  *
- * A Cloudflare Workers implementation of the Durable Streams protocol.
+ * Re-export facade that combines @durable-streams/core and
+ * @durable-streams/storage-durable-object for backwards compatibility.
+ *
+ * New code should import from the individual packages directly:
+ *   import { StreamProtocol, HttpHandler } from "@durable-streams/core";
+ *   import { DurableObjectStreamStorage } from "@durable-streams/storage-durable-object";
  */
 
 // Core classes
-export { StreamProtocol } from "./protocol.ts";
-export { StreamStorage } from "./storage.ts";
-export { HttpHandler } from "./http.ts";
+export { StreamProtocol, HttpHandler } from "@durable-streams/core";
 
-// Type exports
+// Storage class (re-exported with legacy name for backwards compatibility)
+export { DurableObjectStreamStorage as StreamStorage } from "@durable-streams/storage-durable-object";
+
+// Type exports from core
 export type {
   StreamProtocolInterface,
   StorageFactory,
@@ -23,7 +29,7 @@ export type {
   ReadLiveResult,
   MetadataResult,
   DeleteResult,
-} from "./types/protocol.ts";
+} from "@durable-streams/core";
 
 export type {
   StreamStorage as StreamStorageInterface,
@@ -32,4 +38,4 @@ export type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "./types/storage.ts";
+} from "@durable-streams/core";

@@ -1,5 +1,5 @@
 /**
- * Storage Layer Implementation
+ * Storage Layer Implementation - Cloudflare Durable Object
  *
  * SQLite-backed Durable Object storage.
  * Extends DurableObject for RPC access from the protocol layer.
@@ -14,9 +14,9 @@ import type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "./types/storage.ts";
+} from "@durable-streams/core";
 
-export class StreamStorage
+export class DurableObjectStreamStorage
   extends DurableObject
   implements StreamStorageInterface
 {
