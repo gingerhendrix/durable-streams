@@ -1,19 +1,19 @@
 /**
  * Cloudflare Durable Streams
  *
- * Re-export facade that combines @durable-streams/core and
- * @durable-streams/storage-durable-object for backwards compatibility.
+ * Re-export facade that combines @streamsy/core and
+ * @streamsy/storage-durable-object for backwards compatibility.
  *
  * New code should import from the individual packages directly:
- *   import { StreamProtocol, HttpHandler } from "@durable-streams/core";
- *   import { DurableObjectStreamStorage } from "@durable-streams/storage-durable-object";
+ *   import { StreamProtocol, HttpHandler } from "@streamsy/core";
+ *   import { DurableObjectStreamStorage } from "@streamsy/storage-durable-object";
  */
 
 // Core classes
-export { StreamProtocol, HttpHandler } from "@durable-streams/core";
+export { StreamProtocol, HttpHandler } from "@streamsy/core";
 
 // Storage class (re-exported with legacy name for backwards compatibility)
-export { DurableObjectStreamStorage as StreamStorage } from "@durable-streams/storage-durable-object";
+export { DurableObjectStreamStorage as StreamStorage } from "@streamsy/storage-durable-object";
 
 // Type exports from core
 export type {
@@ -29,7 +29,7 @@ export type {
   ReadLiveResult,
   MetadataResult,
   DeleteResult,
-} from "@durable-streams/core";
+} from "@streamsy/core";
 
 export type {
   StreamStorage as StreamStorageInterface,
@@ -38,4 +38,4 @@ export type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "@durable-streams/core";
+} from "@streamsy/core";

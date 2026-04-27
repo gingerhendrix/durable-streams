@@ -12,9 +12,9 @@
       "name": "memory-server",
       "version": "0.0.1",
       "dependencies": {
-        "@durable-streams/core": "workspace:*",
         "@durable-streams/server-conformance-tests": "^0.2.3",
-        "@durable-streams/storage-memory": "workspace:*",
+        "@streamsy/core": "workspace:*",
+        "@streamsy/storage-memory": "workspace:*",
         "vitest": "^4.0.16",
       },
       "devDependencies": {
@@ -40,8 +40,8 @@
       "name": "cf-durable-streams",
       "version": "0.0.1",
       "dependencies": {
-        "@durable-streams/core": "workspace:*",
-        "@durable-streams/storage-durable-object": "workspace:*",
+        "@streamsy/core": "workspace:*",
+        "@streamsy/storage-durable-object": "workspace:*",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
@@ -49,17 +49,17 @@
       },
     },
     "packages/core": {
-      "name": "@durable-streams/core",
+      "name": "@streamsy/core",
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "catalog:",
       },
     },
     "packages/storage-durable-object": {
-      "name": "@durable-streams/storage-durable-object",
+      "name": "@streamsy/storage-durable-object",
       "version": "0.0.1",
       "dependencies": {
-        "@durable-streams/core": "workspace:*",
+        "@streamsy/core": "workspace:*",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
@@ -67,10 +67,10 @@
       },
     },
     "packages/storage-memory": {
-      "name": "@durable-streams/storage-memory",
+      "name": "@streamsy/storage-memory",
       "version": "0.0.1",
       "dependencies": {
-        "@durable-streams/core": "workspace:*",
+        "@streamsy/core": "workspace:*",
       },
       "devDependencies": {
         "typescript": "catalog:",
@@ -178,13 +178,7 @@
 
     "@durable-streams/client": ["@durable-streams/client@0.2.3", "", { "dependencies": { "@microsoft/fetch-event-source": "^2.0.1", "fastq": "^1.19.1" }, "bin": { "intent": "bin/intent.js" } }, "sha512-609hWTqe8/OXzIFnv+oDdlT57QsCAc3F2c/nAQBcYhSLmmbXk5rHx7rnQSmk9MeGGQ8dsg9UCZf47dTJG3q3ig=="],
 
-    "@durable-streams/core": ["@durable-streams/core@workspace:packages/core"],
-
     "@durable-streams/server-conformance-tests": ["@durable-streams/server-conformance-tests@0.2.3", "", { "dependencies": { "@durable-streams/client": "0.2.3", "fast-check": "^4.4.0", "vitest": "^4.0.0" }, "bin": { "server-conformance-tests": "dist/cli.js", "durable-streams-server-conformance": "dist/cli.js", "durable-streams-server-conformance-dev": "bin/conformance-dev.mjs" } }, "sha512-qJmrlD4QUon0TExZ72Rf9l99Rq6gCmD3nKapI+OIhDDUGc72V8hy90yFUGGwleV7tPtFPmXU5bj4KJSAjLiOWQ=="],
-
-    "@durable-streams/storage-durable-object": ["@durable-streams/storage-durable-object@workspace:packages/storage-durable-object"],
-
-    "@durable-streams/storage-memory": ["@durable-streams/storage-memory@workspace:packages/storage-memory"],
 
     "@emnapi/core": ["@emnapi/core@1.7.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg=="],
 
@@ -539,6 +533,12 @@
     "@speed-highlight/core": ["@speed-highlight/core@1.2.12", "", {}, "sha512-uilwrK0Ygyri5dToHYdZSjcvpS2ZwX0w5aSt3GCEN9hrjxWCoeV4Z2DTXuxjwbntaLQIEEAlCeNQss5SoHvAEA=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@streamsy/core": ["@streamsy/core@workspace:packages/core"],
+
+    "@streamsy/storage-durable-object": ["@streamsy/storage-durable-object@workspace:packages/storage-durable-object"],
+
+    "@streamsy/storage-memory": ["@streamsy/storage-memory@workspace:packages/storage-memory"],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 

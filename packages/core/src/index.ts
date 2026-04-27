@@ -1,11 +1,11 @@
 /**
- * @durable-streams/core
+ * @streamsy/core
  *
  * Runtime-agnostic protocol and HTTP layers for the Durable Streams protocol.
  * Provides StreamProtocol, HttpHandler, and all type definitions.
  *
  * Storage backends are provided by separate packages
- * (e.g., @durable-streams/storage-durable-object).
+ * (e.g., @streamsy/storage-durable-object).
  */
 
 // Core classes

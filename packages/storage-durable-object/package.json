@@ -1,5 +1,5 @@
 {
-  "name": "@durable-streams/storage-durable-object",
+  "name": "@streamsy/storage-durable-object",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@durable-streams/core": "workspace:*"
+    "@streamsy/core": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

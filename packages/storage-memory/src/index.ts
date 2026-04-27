@@ -1,8 +1,8 @@
 /**
- * @durable-streams/storage-memory
+ * @streamsy/storage-memory
  *
  * In-memory storage backend for the Durable Streams protocol.
- * Implements the StreamStorage interface from @durable-streams/core
+ * Implements the StreamStorage interface from @streamsy/core
  * using plain JavaScript data structures.
  *
  * Suitable for development, testing, and ephemeral use cases.
@@ -12,7 +12,7 @@
 export { MemoryStreamStorage } from "./storage.ts";
 
 import { MemoryStreamStorage } from "./storage.ts";
-import type { StorageFactory } from "@durable-streams/core";
+import type { StorageFactory } from "@streamsy/core";
 
 /**
  * Creates a StorageFactory backed by in-memory storage.
@@ -20,8 +20,8 @@ import type { StorageFactory } from "@durable-streams/core";
  *
  * Usage:
  * ```typescript
- * import { StreamProtocol, HttpHandler } from "@durable-streams/core";
- * import { createMemoryStorageFactory } from "@durable-streams/storage-memory";
+ * import { StreamProtocol, HttpHandler } from "@streamsy/core";
+ * import { createMemoryStorageFactory } from "@streamsy/storage-memory";
  *
  * const storage = createMemoryStorageFactory();
  * const protocol = new StreamProtocol(storage);
@@ -49,4 +49,4 @@ export type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "@durable-streams/core";
+} from "@streamsy/core";

@@ -14,7 +14,7 @@ import type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "@durable-streams/core";
+} from "@streamsy/core";
 
 export class MemoryStreamStorage implements StreamStorage {
   private metadata: StreamMetadata | null = null;

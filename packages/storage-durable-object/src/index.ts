@@ -1,8 +1,8 @@
 /**
- * @durable-streams/storage-durable-object
+ * @streamsy/storage-durable-object
  *
  * Cloudflare Durable Object storage backend for the Durable Streams protocol.
- * Implements the StreamStorage interface from @durable-streams/core using
+ * Implements the StreamStorage interface from @streamsy/core using
  * Durable Object synchronous KV storage.
  */
 
@@ -16,4 +16,4 @@ export type {
   StorageReadResult,
   StorageReadLiveResult,
   StoredMessage,
-} from "@durable-streams/core";
+} from "@streamsy/core";
