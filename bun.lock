@@ -4,13 +4,16 @@
   "workspaces": {
     "": {
       "name": "durable-streams",
+      "dependencies": {
+        "@durable-streams/server-conformance-tests": "^0.2.3",
+      },
     },
     "examples/memory-server": {
       "name": "memory-server",
       "version": "0.0.1",
       "dependencies": {
         "@durable-streams/core": "workspace:*",
-        "@durable-streams/server-conformance-tests": "^0.1.4",
+        "@durable-streams/server-conformance-tests": "^0.2.3",
         "@durable-streams/storage-memory": "workspace:*",
         "vitest": "^4.0.16",
       },
@@ -22,7 +25,7 @@
       "name": "test-server",
       "version": "0.0.1",
       "dependencies": {
-        "@durable-streams/server-conformance-tests": "^0.1.4",
+        "@durable-streams/server-conformance-tests": "^0.2.3",
         "cf-durable-streams": "workspace:*",
         "vitest": "^4.0.16",
       },
@@ -75,7 +78,7 @@
     },
   },
   "overrides": {
-    "@durable-streams/client": "^0.1.2",
+    "@durable-streams/client": "^0.2.3",
   },
   "catalog": {
     "@cloudflare/workers-types": "^4.20251228.0",
@@ -173,11 +176,11 @@
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
-    "@durable-streams/client": ["@durable-streams/client@0.1.2", "", { "dependencies": { "@microsoft/fetch-event-source": "^2.0.1", "fastq": "^1.19.1" } }, "sha512-S/UHLW4y6c0jBWKSJJ7n+Ev5Jg5Gxiyj8Ux8+iowDt0KhsFp5l2p2RvLKdkV74BCinwSd0zf2ehtM0x0wJZXYA=="],
+    "@durable-streams/client": ["@durable-streams/client@0.2.3", "", { "dependencies": { "@microsoft/fetch-event-source": "^2.0.1", "fastq": "^1.19.1" }, "bin": { "intent": "bin/intent.js" } }, "sha512-609hWTqe8/OXzIFnv+oDdlT57QsCAc3F2c/nAQBcYhSLmmbXk5rHx7rnQSmk9MeGGQ8dsg9UCZf47dTJG3q3ig=="],
 
     "@durable-streams/core": ["@durable-streams/core@workspace:packages/core"],
 
-    "@durable-streams/server-conformance-tests": ["@durable-streams/server-conformance-tests@0.1.4", "", { "dependencies": { "@durable-streams/client": "0.1.2", "fast-check": "^4.4.0", "vitest": "^4.0.0" }, "bin": { "server-conformance-tests": "dist/cli.js", "durable-streams-server-conformance": "dist/cli.js", "durable-streams-server-conformance-dev": "bin/conformance-dev.mjs" } }, "sha512-xAqYd7SHq0RCBA+b/AkLMIi9TiidsH4BO+cDTck6dj5Xact6Esb+QHGx3tXaySYcfEIgjnicufHLepQ3PSB0vg=="],
+    "@durable-streams/server-conformance-tests": ["@durable-streams/server-conformance-tests@0.2.3", "", { "dependencies": { "@durable-streams/client": "0.2.3", "fast-check": "^4.4.0", "vitest": "^4.0.0" }, "bin": { "server-conformance-tests": "dist/cli.js", "durable-streams-server-conformance": "dist/cli.js", "durable-streams-server-conformance-dev": "bin/conformance-dev.mjs" } }, "sha512-qJmrlD4QUon0TExZ72Rf9l99Rq6gCmD3nKapI+OIhDDUGc72V8hy90yFUGGwleV7tPtFPmXU5bj4KJSAjLiOWQ=="],
 
     "@durable-streams/storage-durable-object": ["@durable-streams/storage-durable-object@workspace:packages/storage-durable-object"],
 

@@ -18,9 +18,11 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun --cwd examples/test-server test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@durable-streams/server-conformance-tests": "^0.2.3"
+  },
   "devDependencies": {},
   "overrides": {
-    "@durable-streams/client": "^0.1.2"
+    "@durable-streams/client": "^0.2.3"
   }
 }
